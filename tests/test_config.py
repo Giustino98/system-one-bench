@@ -19,3 +19,5 @@ def test_openrouter_config_is_valid_and_safe() -> None:
     assert config.model.kind == "jev_openrouter"
     assert config.model.api_key_env == "OPENROUTER_API_KEY"
     assert config.run.dry_run is True
+    assert config.dataset.data_files is not None
+    assert config.dataset.data_files["test"].endswith(".parquet")

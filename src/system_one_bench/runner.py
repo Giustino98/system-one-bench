@@ -6,7 +6,12 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from system_one_bench.adapters import JevAdapter, MlxQwenAdapter, OpenRouterJevAdapter
+from system_one_bench.adapters import (
+    JevAdapter,
+    LmStudioQwenAdapter,
+    MlxQwenAdapter,
+    OpenRouterJevAdapter,
+)
 from system_one_bench.adapters.base import ClassifierAdapter
 from system_one_bench.config import BenchmarkConfig
 from system_one_bench.dataset import load_classification_dataset
@@ -35,7 +40,7 @@ def run_benchmark(config: BenchmarkConfig) -> Path:
         raise RuntimeError(
             "Refusing to run because run.dry_run is true. Set it to false explicitly."
         )
-    examples, labels = load_classification_dataset(config.dataset)
+    examples, labels = load_classification_dataset(config.dataset, seed=config.run.seed)
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + f"-{config.model.kind}"
     writer = RunWriter(config.run.output_dir / run_id, config.run.persist_raw_responses)
     writer.write_metadata(
@@ -88,3 +93,5 @@ def create_adapter(config: BenchmarkConfig) -> ClassifierAdapter:
             return OpenRouterJevAdapter(config.model)
         case "mlx_qwen":
             return MlxQwenAdapter(config.model)
+        case "lmstudio_qwen":
+            return LmStudioQwenAdapter(config.model)

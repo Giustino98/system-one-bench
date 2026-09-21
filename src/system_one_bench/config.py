@@ -17,6 +17,7 @@ class DatasetConfig(BaseModel):
     text_field: str = "text"
     label_field: str = "label"
     limit: int | None = Field(default=None, gt=0)
+    data_files: dict[str, str] | None = None
 
 
 class PricingConfig(BaseModel):
@@ -29,7 +30,7 @@ class PricingConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["jev", "jev_openrouter", "mlx_qwen"]
+    kind: Literal["jev", "jev_openrouter", "mlx_qwen", "lmstudio_qwen"]
     name: str
     api_key_env: str = "TYPESAFE_API_KEY"
     base_url: HttpUrl | None = None

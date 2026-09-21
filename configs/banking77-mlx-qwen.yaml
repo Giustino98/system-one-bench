@@ -2,11 +2,16 @@
 dataset:
   name: PolyAI/banking77
   split: test
+  data_files:
+    train: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/train-00000-of-00001.parquet
+    test: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/test-00000-of-00001.parquet
   limit: 25
 model:
-  kind: mlx_qwen
-  # A practical starting point for a 16 GB Apple-Silicon Mac; adjust after observing memory use.
-  name: mlx-community/Qwen2.5-3B-Instruct-4bit
+  kind: lmstudio_qwen
+  # LM Studio identifier for the loaded mlx-community/Qwen2.5-3B-Instruct-4bit checkpoint.
+  name: qwen2.5-3b-instruct
+  base_url: http://127.0.0.1:1234/v1
+  timeout_seconds: 120
   max_tokens: 12
   temperature: 0.0
 run:

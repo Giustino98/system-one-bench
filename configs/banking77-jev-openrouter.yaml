@@ -2,6 +2,9 @@
 dataset:
   name: PolyAI/banking77
   split: test
+  data_files:
+    train: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/train-00000-of-00001.parquet
+    test: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/test-00000-of-00001.parquet
   limit: 25
 model:
   kind: jev_openrouter

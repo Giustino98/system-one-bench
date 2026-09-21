@@ -14,14 +14,20 @@ def humanize_label(label: str) -> str:
 
 
 def load_classification_dataset(
-    config: DatasetConfig,
+    config: DatasetConfig, *, seed: int = 42
 ) -> tuple[list[ClassificationExample], list[str]]:
     """Load a Hugging Face classification split and preserve its label order."""
-    dataset = load_dataset(config.name, split=config.split)
+    if config.data_files is None:
+        dataset = load_dataset(config.name, split=config.split)
+    else:
+        dataset = load_dataset("parquet", data_files=config.data_files, split=config.split)
     label_feature = dataset.features[config.label_field]
     if not isinstance(label_feature, ClassLabel):
         raise TypeError(f"{config.label_field!r} must be a ClassLabel feature.")
     labels = list(label_feature.names)
+    if config.limit is not None:
+        dataset = dataset.shuffle(seed=seed)
+        dataset = dataset.select(range(min(config.limit, len(dataset))))
     records: list[ClassificationExample] = []
     for index, row in enumerate(dataset):
         label_index = row[config.label_field]
@@ -34,6 +40,4 @@ def load_classification_dataset(
                 expected_label=labels[label_index],
             )
         )
-        if config.limit is not None and len(records) >= config.limit:
-            break
     return records, labels

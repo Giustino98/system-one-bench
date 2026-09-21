@@ -29,21 +29,35 @@ Ogni configurazione è prima **parsata e validata** (campi sconosciuti inclusi),
 
 ## Setup — Mac Apple Silicon da 16 GB
 
-Serve Python 3.11+ e, consigliato, [uv](https://docs.astral.sh/uv/). Dal repository:
+Il progetto usa Python 3.14.6 gestito da [uv](https://docs.astral.sh/uv/), fissato in `.python-version`; non usa il Python globale. Dal repository:
 
 ```bash
 cd system-one-bench
-uv venv --python 3.11
-uv sync --extra dev
+make setup
 ```
 
-Per la baseline locale MLX, installa anche l'extra dedicato:
+Il checkpoint iniziale è `mlx-community/Qwen2.5-3B-Instruct-4bit`: è una scelta prudente per 16 GB di memoria unificata. La configurazione locale predefinita usa l'istanza MLX già caricata in LM Studio, evitando una seconda copia del modello in memoria:
 
 ```bash
-uv sync --extra dev --extra local
+lms get https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit --mlx --yes
+lms load qwen2.5-3b-instruct --context-length 4096
+lms server start
+curl http://127.0.0.1:1234/v1/models
 ```
 
-Il checkpoint iniziale è `mlx-community/Qwen2.5-3B-Instruct-4bit`: è una scelta prudente per 16 GB di memoria unificata. Non è una promessa di prestazioni; osserva memoria, velocità e validità dell'output sul pilot prima di provare un checkpoint più grande.
+LM Studio deve mostrare l'identificatore `qwen2.5-3b-instruct`. L'adapter MLX diretto (`kind: mlx_qwen`) rimane disponibile per esecuzioni senza server. Non è una promessa di prestazioni: osserva memoria, velocità e validità dell'output sul pilot prima di provare un checkpoint più grande.
+
+BANKING77 viene letto da una conversione Parquet verificata e fissata a commit, perché `datasets` 4.x non esegue più il vecchio `banking77.py`. I pilot con `limit` applicano uno shuffle deterministico basato su `run.seed`, così non selezionano solo la prima classe del dataset.
+
+Comandi principali:
+
+```bash
+make check          # lint, format-check, typing e test
+make plan-local     # valida e mostra il piano senza inferenza
+make run-local      # esegue Qwen; richiede dry_run: false
+make plan-jev       # valida e mostra il piano Jev senza costi
+make run-jev        # esegue Jev; richiede chiave e dry_run: false
+```
 
 ## Accesso a Jev e costi
 
@@ -135,10 +149,12 @@ La baseline MLX non inventa pseudo-probabilità: Brier ed ECE restano `null` fin
 
 ## Sviluppo e controlli locali
 
+Il target aggregato è:
+
 ```bash
-uv run pytest
-uv run ruff check .
-uv run mypy src
+make check
 ```
+
+Sono disponibili anche `make lint`, `make format-check`, `make typecheck` e `make test`.
 
 Licenza: MIT.
