@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 
 from system_one_bench.config import ModelConfig
-from system_one_bench.domain import ClassificationExample, Prediction
+from system_one_bench.domain import ChoiceExample, Prediction
 
 
 class _BaseJevAdapter:
@@ -31,22 +31,24 @@ class _BaseJevAdapter:
     def model_name(self) -> str:
         return self._config.name
 
-    def classify(self, example: ClassificationExample, labels: Sequence[str]) -> Prediction:
+    def classify(self, example: ChoiceExample) -> Prediction:
         api_key = os.getenv(self._config.api_key_env)
         if not api_key:
             raise RuntimeError(
                 f"Missing {self._config.api_key_env}. Copy .env.example and add a key "
                 "before a live run."
             )
-        payload = _build_payload(example, labels, self._config.name)
+        payload = _build_payload(example, self._config.name)
         start = time.perf_counter()
         response = self._post_with_retry(api_key, payload)
         body: dict[str, Any] = response.json()
         latency_ms = (time.perf_counter() - start) * 1_000
-        selected, probabilities = _parse_choice(body, labels)
+        selected, probabilities = _parse_choice(body, example.choice_keys)
         usage = body.get("usage", {})
+        if not isinstance(usage, Mapping):
+            usage = {}
         return Prediction(
-            predicted_label=selected,
+            predicted_choice=selected,
             probabilities=probabilities,
             latency_ms=latency_ms,
             input_tokens=_integer_or_none(usage.get("input_tokens")),
@@ -98,51 +100,49 @@ class OpenRouterJevAdapter(_BaseJevAdapter):
     endpoint_path = "decisions"
 
 
-def _build_payload(
-    example: ClassificationExample, labels: Sequence[str], model_name: str
-) -> dict[str, Any]:
+def _build_payload(example: ChoiceExample, model_name: str) -> dict[str, Any]:
+    """Map arbitrary single-choice examples to Jev's typed Choice primitive."""
     return {
         "model": model_name,
-        "state": {"customer_message": example.text},
+        "state": {"problem": example.text},
         "questions": {
-            "intent": {
+            "answer": {
                 "type": "choice",
-                "instructions": "Classify the customer message into exactly one banking intent.",
-                "criteria": dict.fromkeys(labels),
+                "instructions": example.instruction,
+                "criteria": dict(example.choices),
             }
         },
     }
 
 
 def _parse_choice(
-    body: Mapping[str, Any], labels: Sequence[str]
+    body: Mapping[str, Any], choices: Sequence[str]
 ) -> tuple[str, dict[str, float] | None]:
-    """Extract an answer without silently accepting labels outside the benchmark."""
-    answer: Any = body.get("answers", {}).get("intent")
+    """Extract an answer without silently accepting keys outside the benchmark."""
+    answer: Any = body.get("answers", {}).get("answer")
     if answer is None:
-        answer = body.get("choices", {}).get("intent")
+        answer = body.get("choices", {}).get("answer")
     if isinstance(answer, str):
         selected = answer
         probabilities = None
     elif isinstance(answer, Mapping):
         selected = answer.get("choice", answer.get("value", answer.get("selected")))
-        raw_probabilities = answer.get("probabilities")
-        probabilities = _normalise_probabilities(raw_probabilities, labels)
+        probabilities = _normalise_probabilities(answer.get("probabilities"), choices)
     else:
-        raise ValueError("Jev response did not include an 'intent' Choice answer.")
-    if not isinstance(selected, str) or selected not in labels:
-        raise ValueError(f"Jev returned invalid benchmark label: {selected!r}")
+        raise ValueError("Jev response did not include an 'answer' Choice response.")
+    if not isinstance(selected, str) or selected not in choices:
+        raise ValueError(f"Jev returned invalid benchmark choice: {selected!r}")
     return selected, probabilities
 
 
-def _normalise_probabilities(raw: Any, labels: Sequence[str]) -> dict[str, float] | None:
+def _normalise_probabilities(raw: Any, choices: Sequence[str]) -> dict[str, float] | None:
     if not isinstance(raw, Mapping):
         return None
-    values = {label: float(raw[label]) for label in labels if label in raw}
+    values = {choice: float(raw[choice]) for choice in choices if choice in raw}
     total = sum(values.values())
     if total <= 0:
         return None
-    return {label: value / total for label, value in values.items()}
+    return {choice: value / total for choice, value in values.items()}
 
 
 def _integer_or_none(value: Any) -> int | None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Sequence
 
 import numpy as np
@@ -11,31 +12,41 @@ from system_one_bench.domain import PredictionRecord
 
 
 def compute_metrics(
-    records: Sequence[PredictionRecord], labels: Sequence[str]
+    records: Sequence[PredictionRecord], choices: Sequence[str]
 ) -> dict[str, float | None]:
-    """Compute quality, latency, and calibrated-confidence metrics when possible."""
+    """Compute global/task quality, latency, and calibration when possible."""
     if not records:
         raise ValueError("Cannot compute metrics for an empty run.")
-    expected = [record.example.expected_label for record in records]
-    predicted = [record.prediction.predicted_label for record in records]
-    label_set = set(labels)
+    expected = [record.example.expected_choice for record in records]
+    predicted = [record.prediction.predicted_choice for record in records]
     latencies = np.asarray([record.prediction.latency_ms for record in records], dtype=float)
+    invalid_count = sum(
+        record.prediction.predicted_choice not in record.example.choices for record in records
+    )
     metrics: dict[str, float | None] = {
         "accuracy": float(accuracy_score(expected, predicted)),
         "macro_f1": float(
-            f1_score(expected, predicted, labels=list(labels), average="macro", zero_division=0)
+            f1_score(expected, predicted, labels=list(choices), average="macro", zero_division=0)
         ),
-        "invalid_output_rate": sum(label not in label_set for label in predicted) / len(predicted),
+        "invalid_output_rate": invalid_count / len(records),
         "latency_p50_ms": float(np.percentile(latencies, 50)),
         "latency_p95_ms": float(np.percentile(latencies, 95)),
         "brier_score": None,
         "ece": None,
     }
+    by_task: dict[str, list[PredictionRecord]] = defaultdict(list)
+    for record in records:
+        by_task[record.example.task].append(record)
+    for task, task_records in sorted(by_task.items()):
+        task_expected = [record.example.expected_choice for record in task_records]
+        task_predicted = [record.prediction.predicted_choice for record in task_records]
+        metrics[f"accuracy_{task}"] = float(accuracy_score(task_expected, task_predicted))
+
     probabilities = [record.prediction.probabilities for record in records]
     if all(probability is not None for probability in probabilities):
         vectors = [probability for probability in probabilities if probability is not None]
-        metrics["brier_score"] = _multiclass_brier(expected, vectors, labels)
-        metrics["ece"] = _expected_calibration_error(expected, vectors, labels)
+        metrics["brier_score"] = _multiclass_brier(records, vectors)
+        metrics["ece"] = _expected_calibration_error(records, vectors)
     return metrics
 
 
@@ -59,28 +70,41 @@ def estimate_cost_usd(
 
 
 def _multiclass_brier(
-    expected: Sequence[str], probabilities: Sequence[dict[str, float]], labels: Sequence[str]
+    records: Sequence[PredictionRecord], probabilities: Sequence[dict[str, float]]
 ) -> float:
     scores = []
-    for truth, probability in zip(expected, probabilities, strict=True):
+    for record, probability in zip(records, probabilities, strict=True):
         scores.append(
-            sum((probability.get(label, 0.0) - float(label == truth)) ** 2 for label in labels)
+            sum(
+                (probability.get(choice, 0.0) - float(choice == record.example.expected_choice))
+                ** 2
+                for choice in record.example.choice_keys
+            )
         )
     return float(np.mean(scores))
 
 
 def _expected_calibration_error(
-    expected: Sequence[str],
+    records: Sequence[PredictionRecord],
     probabilities: Sequence[dict[str, float]],
-    labels: Sequence[str],
     bins: int = 10,
 ) -> float:
     confidences = np.asarray(
-        [max(item.get(label, 0.0) for label in labels) for item in probabilities]
+        [
+            max(item.get(choice, 0.0) for choice in record.example.choice_keys)
+            for record, item in zip(records, probabilities, strict=True)
+        ]
     )
-    guesses = [max(labels, key=lambda label: item.get(label, 0.0)) for item in probabilities]
+    guesses = [
+        max(record.example.choice_keys, key=lambda choice: item.get(choice, 0.0))
+        for record, item in zip(records, probabilities, strict=True)
+    ]
     correct = np.asarray(
-        [guess == truth for guess, truth in zip(guesses, expected, strict=True)], dtype=float
+        [
+            guess == record.example.expected_choice
+            for guess, record in zip(guesses, records, strict=True)
+        ],
+        dtype=float,
     )
     ece = 0.0
     for lower, upper in zip(

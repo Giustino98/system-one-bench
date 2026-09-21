@@ -1,12 +1,22 @@
-from system_one_bench.domain import ClassificationExample, Prediction, PredictionRecord
+from system_one_bench.domain import ChoiceExample, Prediction, PredictionRecord
 from system_one_bench.metrics import compute_metrics, estimate_cost_usd
 
 
 def _record(
-    expected: str, predicted: str, probability: dict[str, float] | None
+    expected: str,
+    predicted: str,
+    probability: dict[str, float] | None,
+    task: str = "three_objects",
 ) -> PredictionRecord:
     return PredictionRecord(
-        example=ClassificationExample("id", "message", expected),
+        example=ChoiceExample(
+            "id",
+            task,
+            "problem",
+            {"A": "first", "B": "second"},
+            expected,
+            "Choose one.",
+        ),
         prediction=Prediction(
             predicted, probability, latency_ms=10, input_tokens=5, output_tokens=2
         ),
@@ -14,30 +24,28 @@ def _record(
     )
 
 
-def test_metrics_include_calibration_when_every_prediction_has_probabilities() -> None:
-    records = [_record("a", "a", {"a": 0.9, "b": 0.1}), _record("b", "a", {"a": 0.6, "b": 0.4})]
+def test_metrics_include_global_and_per_task_accuracy() -> None:
+    records = [
+        _record("A", "A", {"A": 0.9, "B": 0.1}, "three_objects"),
+        _record("B", "A", {"A": 0.6, "B": 0.4}, "five_objects"),
+    ]
 
-    metrics = compute_metrics(records, ["a", "b"])
+    metrics = compute_metrics(records, ["A", "B"])
 
     assert metrics["accuracy"] == 0.5
+    assert metrics["accuracy_three_objects"] == 1.0
+    assert metrics["accuracy_five_objects"] == 0.0
     assert metrics["brier_score"] is not None
     assert metrics["ece"] is not None
 
 
-def test_metrics_hide_calibration_for_models_without_probabilities() -> None:
-    metrics = compute_metrics([_record("a", "a", None)], ["a", "b"])
+def test_metrics_hide_calibration_without_probabilities_and_count_invalids() -> None:
+    metrics = compute_metrics([_record("A", "__invalid__:almost", None)], ["A", "B"])
 
+    assert metrics["invalid_output_rate"] == 1.0
     assert metrics["brier_score"] is None
     assert metrics["ece"] is None
 
 
-def test_metrics_count_invalid_outputs() -> None:
-    metrics = compute_metrics([_record("a", "__invalid__:almost_a", None)], ["a", "b"])
-
-    assert metrics["invalid_output_rate"] == 1.0
-
-
 def test_cost_requires_complete_usage_and_applies_rates() -> None:
-    record = _record("a", "a", None)
-
-    assert estimate_cost_usd([record], input_rate=1.0, output_rate=2.0) == 9 / 1_000_000
+    assert estimate_cost_usd([_record("A", "A", None)], 1.0, 2.0) == 9 / 1_000_000

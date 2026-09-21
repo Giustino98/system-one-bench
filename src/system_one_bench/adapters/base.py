@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import Protocol
 
-from system_one_bench.domain import ClassificationExample, Prediction
+from system_one_bench.domain import ChoiceExample, Prediction
 
 
 class ClassifierAdapter(Protocol):
-    """Synchronous model interface, deliberately small for faithful comparisons."""
+    """Synchronous model interface with choices carried by each example."""
 
     @property
     def model_name(self) -> str: ...
 
-    def classify(self, example: ClassificationExample, labels: Sequence[str]) -> Prediction: ...
+    def classify(self, example: ChoiceExample) -> Prediction: ...
 
     def close(self) -> None: ...
