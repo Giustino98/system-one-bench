@@ -1,0 +1,27 @@
+# Safe smoke configuration: no request is made until dry_run is explicitly false.
+dataset:
+  kind: bbh_logical_deduction
+  name: lighteval/bbh
+  revision: 1b61f099fcbf9e55691ef8cc6b4b8fb431dae097
+  split: train
+  tasks:
+    - logical_deduction_three_objects
+    - logical_deduction_five_objects
+    - logical_deduction_seven_objects
+  instruction: Choose the option that follows from the problem.
+  limit: 3  # Per task: nine examples total in the smoke run.
+model:
+  kind: jev_openrouter
+  name: typesafe/jev-1.13
+  api_key_env: OPENROUTER_API_KEY
+  base_url: https://openrouter.ai/api/alpha
+  timeout_seconds: 60
+  max_retries: 3
+  pricing:
+    input_per_million_usd: 0.042
+    output_per_million_usd: 0.0
+run:
+  output_dir: results
+  seed: 42
+  dry_run: true
+  persist_raw_responses: true

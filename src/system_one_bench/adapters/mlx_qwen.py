@@ -108,9 +108,8 @@ def _prompt(tokenizer: Any, example: ChoiceExample, *, thinking: bool) -> str:
     template_options: dict[str, Any] = {
         "tokenize": False,
         "add_generation_prompt": True,
+        "enable_thinking": thinking,
     }
-    if thinking:
-        template_options["enable_thinking"] = True
     rendered = tokenizer.apply_chat_template(messages, **template_options)
     if not isinstance(rendered, str):
         raise TypeError("The tokenizer chat template did not return text.")
@@ -131,7 +130,8 @@ def _extract_choice(answer: str, example: ChoiceExample) -> str:
     if example.answer_prefix:
         alternatives = "|".join(map(re.escape, example.choice_keys))
         pattern = re.compile(rf"^{re.escape(example.answer_prefix)}\s*({alternatives})$")
-        match = pattern.fullmatch(answer.strip())
+        last_line = answer.rstrip().splitlines()[-1] if answer.strip() else ""
+        match = pattern.fullmatch(last_line)
         if match is not None:
             return match.group(1)
     else:

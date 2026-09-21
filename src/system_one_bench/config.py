@@ -36,6 +36,8 @@ class ModelConfig(BaseModel):
 
     kind: Literal["jev", "jev_openrouter", "mlx_qwen", "lmstudio_qwen"]
     name: str
+    api_model: str | None = None
+    lmstudio_api: Literal["openai", "native"] = "openai"
     api_key_env: str = "TYPESAFE_API_KEY"
     base_url: HttpUrl | None = None
     timeout_seconds: float = Field(default=30.0, gt=0)

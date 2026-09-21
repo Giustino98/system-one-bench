@@ -20,6 +20,9 @@ def test_bbh_configs_are_safe_and_enable_native_qwen_thinking() -> None:
 
     assert jev.model.name == "typesafe/jev-1.13"
     assert qwen.model.name == "mlx-community/Qwen3-14B-4bit"
+    assert qwen.model.api_model == "qwen/qwen3-14b"
+    assert qwen.model.kind == "lmstudio_qwen"
+    assert qwen.model.lmstudio_api == "native"
     assert qwen.model.thinking is True
     assert jev.run.dry_run is qwen.run.dry_run is True
     assert jev.dataset.tasks == qwen.dataset.tasks

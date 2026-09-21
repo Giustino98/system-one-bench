@@ -20,7 +20,7 @@ def _bbh_example() -> ChoiceExample:
     )
 
 
-def test_native_thinking_is_enabled_through_the_chat_template() -> None:
+def test_thinking_flag_is_always_passed_to_the_chat_template() -> None:
     class Tokenizer:
         options: dict[str, Any]
 
@@ -28,10 +28,13 @@ def test_native_thinking_is_enabled_through_the_chat_template() -> None:
             self.options = kwargs
             return "rendered"
 
-    tokenizer = Tokenizer()
+    thinking_tokenizer = Tokenizer()
+    no_thinking_tokenizer = Tokenizer()
 
-    assert _prompt(tokenizer, _bbh_example(), thinking=True) == "rendered"
-    assert tokenizer.options["enable_thinking"] is True
+    assert _prompt(thinking_tokenizer, _bbh_example(), thinking=True) == "rendered"
+    assert _prompt(no_thinking_tokenizer, _bbh_example(), thinking=False) == "rendered"
+    assert thinking_tokenizer.options["enable_thinking"] is True
+    assert no_thinking_tokenizer.options["enable_thinking"] is False
 
 
 def test_reasoning_is_separated_and_only_exact_final_answer_is_scored() -> None:
@@ -50,3 +53,10 @@ def test_bbh_parser_has_no_fuzzy_or_embedded_answer_matching() -> None:
     assert _extract_choice("B", example).startswith("__invalid__:")
     assert _extract_choice("The answer is ANSWER: B", example).startswith("__invalid__:")
     assert _extract_choice("ANSWER: blue", example).startswith("__invalid__:")
+
+
+def test_bbh_parser_scores_only_an_exact_answer_on_the_last_line() -> None:
+    example = _bbh_example()
+
+    assert _extract_choice("Concise conclusion.\nANSWER: B", example) == "B"
+    assert _extract_choice("ANSWER: B\nTrailing text", example).startswith("__invalid__:")
