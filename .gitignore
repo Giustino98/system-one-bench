@@ -1,0 +1,30 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials*.json
+secrets*.json
+secrets*.yaml
+secrets*.yml
+
+# Python and tooling
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Benchmark outputs may contain model responses or customer text
+results/*
+!results/.gitkeep
