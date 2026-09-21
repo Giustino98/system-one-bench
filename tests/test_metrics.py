@@ -31,6 +31,12 @@ def test_metrics_hide_calibration_for_models_without_probabilities() -> None:
     assert metrics["ece"] is None
 
 
+def test_metrics_count_invalid_outputs() -> None:
+    metrics = compute_metrics([_record("a", "__invalid__:almost_a", None)], ["a", "b"])
+
+    assert metrics["invalid_output_rate"] == 1.0
+
+
 def test_cost_requires_complete_usage_and_applies_rates() -> None:
     record = _record("a", "a", None)
 

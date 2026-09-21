@@ -18,12 +18,14 @@ def compute_metrics(
         raise ValueError("Cannot compute metrics for an empty run.")
     expected = [record.example.expected_label for record in records]
     predicted = [record.prediction.predicted_label for record in records]
+    label_set = set(labels)
     latencies = np.asarray([record.prediction.latency_ms for record in records], dtype=float)
     metrics: dict[str, float | None] = {
         "accuracy": float(accuracy_score(expected, predicted)),
         "macro_f1": float(
             f1_score(expected, predicted, labels=list(labels), average="macro", zero_division=0)
         ),
+        "invalid_output_rate": sum(label not in label_set for label in predicted) / len(predicted),
         "latency_p50_ms": float(np.percentile(latencies, 50)),
         "latency_p95_ms": float(np.percentile(latencies, 95)),
         "brier_score": None,

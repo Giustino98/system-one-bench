@@ -142,7 +142,7 @@ La baseline MLX non inventa pseudo-probabilità: Brier ed ECE restano `null` fin
 ## Qualità e limiti sperimentali
 
 - I modelli vedono identiche label canoniche (`cash_withdrawal`, ecc.); non ci sono descrizioni curate per classe. Un secondo protocollo potrà introdurre una label-card uguale per entrambi, dichiarandolo chiaramente.
-- Il Qwen è forzato a generare una label esatta. Un output fuori vocabolario fa fallire il run invece di essere silenziosamente corretto: è un segnale utile per l'analisi.
+- Il Qwen è forzato a generare una label esatta. Un output fuori vocabolario viene salvato con prefisso `__invalid__:` e contato come errore, senza interrompere o correggere semanticamente il run; il summary espone anche `invalid_output_rate`.
 - L'adapter Jev conserva il payload della risposta solo se `persist_raw_responses: true`. I summary non contengono chiavi.
 - La latenza è end-to-end osservata dal processo client; include rete per Jev e non è un benchmark server-side.
 - OpenRouter aggiunge un hop di rete e restituisce probabilità arrotondate: latenza e calibrazione vanno tenute separate da una futura esecuzione TypeSafe diretta.

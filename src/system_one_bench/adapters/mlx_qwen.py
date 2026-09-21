@@ -88,8 +88,9 @@ def _prompt(tokenizer: Any, text: str, labels: Sequence[str]) -> str:
 
 
 def _extract_label(answer: str, labels: Sequence[str]) -> str:
-    normalised = answer.strip().lower().replace(" ", "_").replace("-", "_")
+    # Small instruct models sometimes apply Markdown escaping to underscores.
+    normalised = answer.strip().lower().replace("\\_", "_").replace(" ", "_").replace("-", "_")
     for label in labels:
         if normalised == label or normalised.startswith(f"{label}\n"):
             return label
-    raise ValueError(f"Local model returned an invalid label: {answer!r}")
+    return f"__invalid__:{answer.strip()}"
