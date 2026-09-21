@@ -27,11 +27,11 @@ class MlxQwenAdapter:
     def classify(self, example: ClassificationExample, labels: Sequence[str]) -> Prediction:
         model, tokenizer = self._load()
         prompt = _prompt(tokenizer, example.text, labels)
-        from mlx_lm import generate  # type: ignore[import-not-found]
+        from mlx_lm import generate
 
         generation_options: dict[str, Any] = {}
         if self._config.temperature > 0:
-            from mlx_lm.sample_utils import make_sampler  # type: ignore[import-not-found]
+            from mlx_lm.sample_utils import make_sampler
 
             generation_options["sampler"] = make_sampler(temp=self._config.temperature)
 
@@ -56,7 +56,9 @@ class MlxQwenAdapter:
                 raise RuntimeError(
                     "Install the local extra first: uv sync --extra local"
                 ) from error
-            self._model, self._tokenizer = load(self._config.name)
+            loaded = load(self._config.name)
+            self._model = loaded[0]
+            self._tokenizer = loaded[1]
         return self._model, self._tokenizer
 
     def close(self) -> None:
