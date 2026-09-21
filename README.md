@@ -86,13 +86,8 @@ cp .env.example .env
 # TYPESAFE_API_KEY=...  # quando arriverà l'accesso diretto
 ```
 
-Prima del run esporta la chiave dalla shell; il file `.env` non viene caricato automaticamente:
-
-```bash
-set -a
-source .env
-set +a
-```
+Il target `make run-jev` carica automaticamente `.env` tramite `uv`. Se esegui la CLI
+direttamente, usa `uv run --env-file .env system-one-bench run <config>`.
 
 Non incollare mai una chiave nei YAML, nel codice o nei risultati.
 
@@ -120,8 +115,8 @@ L'endpoint OpenRouter Decisions è ancora alpha e arrotonda le probabilità a du
 3. Esegui un run per modello, con stesso split, stesso limite e stesse 77 label. Per Jev aggiorna prima `input_per_million_usd` / `output_per_million_usd` con il pricing effettivo.
 
    ```bash
-   uv run system-one-bench run configs/banking77-jev-openrouter.yaml
-   uv run system-one-bench run configs/banking77-mlx-qwen.yaml
+   make run-jev
+   make run-local
    ```
 
 4. Rimuovi `limit` solo dopo il pilot. Conserva config e `metadata.json` accanto a ogni risultato, così le comparazioni rimangono auditabili.
