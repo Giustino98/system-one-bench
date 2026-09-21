@@ -1,0 +1,21 @@
+# OpenRouter pilot. No paid call is possible until dry_run becomes false.
+dataset:
+  name: PolyAI/banking77
+  split: test
+  limit: 25
+model:
+  kind: jev_openrouter
+  name: typesafe/jev-1.13
+  api_key_env: OPENROUTER_API_KEY
+  base_url: https://openrouter.ai/api/alpha
+  timeout_seconds: 30
+  max_retries: 3
+  pricing:
+    # Provider rate; OpenRouter Standard separately charges 5.5% when credits are purchased.
+    input_per_million_usd: 0.042
+    output_per_million_usd: 0.0
+run:
+  output_dir: results
+  seed: 42
+  dry_run: true
+  persist_raw_responses: false

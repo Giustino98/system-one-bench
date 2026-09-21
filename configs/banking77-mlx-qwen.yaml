@@ -1,0 +1,16 @@
+# This does not use API keys, but stays dry-run until you deliberately enable it.
+dataset:
+  name: PolyAI/banking77
+  split: test
+  limit: 25
+model:
+  kind: mlx_qwen
+  # A practical starting point for a 16 GB Apple-Silicon Mac; adjust after observing memory use.
+  name: mlx-community/Qwen2.5-3B-Instruct-4bit
+  max_tokens: 12
+  temperature: 0.0
+run:
+  output_dir: results
+  seed: 42
+  dry_run: true
+  persist_raw_responses: false
