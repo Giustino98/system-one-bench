@@ -34,7 +34,7 @@ class PricingConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["jev", "jev_openrouter", "mlx_qwen", "lmstudio_qwen"]
+    kind: Literal["gemini", "jev", "jev_openrouter", "mlx_qwen", "lmstudio_qwen"]
     name: str
     api_model: str | None = None
     lmstudio_api: Literal["openai", "native"] = "openai"
@@ -47,6 +47,7 @@ class ModelConfig(BaseModel):
     top_p: float | None = Field(default=None, gt=0, le=1)
     top_k: int | None = Field(default=None, ge=0)
     thinking: bool = False
+    thinking_level: Literal["low", "medium", "high"] | None = None
     seed: int | None = None
     pricing: PricingConfig = Field(default_factory=PricingConfig)
 

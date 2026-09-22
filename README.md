@@ -1,6 +1,6 @@
 # system-one-bench
 
-Un benchmark riproducibile per confrontare un modello **System One** come Jev / TypeSafe AI con modelli locali. Include sia la classificazione BANKING77 sia **BBH Logical Deduction** con 3, 5 e 7 oggetti.
+Un benchmark riproducibile per confrontare un modello **System One** come Jev / TypeSafe AI con modelli locali e cloud. Include sia la classificazione BANKING77 sia **BBH Logical Deduction** con 3, 5 e 7 oggetti.
 
 ## Ipotesi da testare
 
@@ -10,7 +10,7 @@ Jev è un classificatore decisionale zero-shot: riceve stato e opzioni e restitu
 - un Qwen locale possa risultare più economico a volume, privato/offline e competitivo in accuratezza;
 - task che richiedono più passaggi di ragionamento possano ridurre il vantaggio del modello non autoregressivo.
 
-Il benchmark BBH verifica in modo più diretto se il test-time compute sequenziale di Qwen3 acquista valore aumentando la complessità da 3 → 5 → 7 oggetti. Jev e Qwen ricevono lo stesso problema, le stesse alternative e la stessa istruzione, senza few-shot; la sola differenza intenzionale è il thinking autoregressivo nativo di Qwen3.
+Il benchmark BBH verifica in modo più diretto se il test-time compute sequenziale acquista valore aumentando la complessità da 3 → 5 → 7 oggetti. Jev, Qwen e Gemini ricevono lo stesso problema, le stesse alternative e la stessa istruzione, senza few-shot. Qwen e Gemini usano i rispettivi meccanismi nativi di thinking; Jev resta la baseline System One.
 
 ## Cosa contiene
 
@@ -59,9 +59,10 @@ make plan-jev       # valida e mostra il piano Jev senza costi
 make run-jev        # esegue Jev; richiede chiave e dry_run: false
 make plan-bbh-qwen  # valida il piano BBH/Qwen senza caricare il 14B
 make plan-bbh-jev   # valida il piano BBH/Jev senza chiamate a pagamento
+make plan-bbh-gemini # valida il piano BBH/Gemini senza chiamate API
 ```
 
-## BBH Logical Deduction: Jev contro Qwen3 thinking
+## BBH Logical Deduction: Jev, Qwen3 e Gemini 3.8 Flash
 
 I due YAML usano esclusivamente:
 
@@ -75,11 +76,12 @@ La baseline locale identifica il checkpoint come `mlx-community/Qwen3-14B-4bit` 
 
 Su un Mac Apple Silicon con 16 GB il 14B 4-bit è vicino al limite pratico: chiudi applicazioni pesanti e non caricare contemporaneamente lo stesso checkpoint in LM Studio. Il primo avvio scarica il modello; assicurati di avere spazio libero adeguato. La configurazione usa sampling raccomandato per il thinking (`temperature: 0.6`, `top_p: 0.95`, `top_k: 20`) e 1.024 token massimi, non il vecchio decoding greedy da 12 token di BANKING77.
 
-Entrambe le configurazioni sono sicure per default:
+Tutte e tre le configurazioni sono sicure per default:
 
 ```bash
 make plan-bbh-qwen
 make plan-bbh-jev
+make plan-bbh-gemini
 ```
 
 Quando vuoi eseguire lo smoke test, cambia consapevolmente `run.dry_run` a `false` nel relativo YAML e lancia:
@@ -87,9 +89,24 @@ Quando vuoi eseguire lo smoke test, cambia consapevolmente `run.dry_run` a `fals
 ```bash
 make run-bbh-qwen  # locale, nessuna API key
 make run-bbh-jev   # usa OPENROUTER_API_KEY da .env
+make run-bbh-gemini # usa GEMINI_API_KEY da .env
 ```
 
 Non aumentare/rimuovere `limit` prima di avere confrontato gli artefatti smoke. Ogni record conserva task, choices, risposta, latenza e raw output; per Qwen conserva anche il reasoning separato, per Jev probabilità, usage e costo quando restituiti dal provider.
+
+### Gemini 3.8 Flash
+
+`configs/bbh-logical-deduction-gemini-3.8-flash.yaml` chiama direttamente la Gemini API con `gemini-3.8-flash`, API key nell'header `x-goog-api-key`, thinking level `medium` e thought summaries persistiti separatamente dalla risposta finale. Il YAML usa lo stesso dataset, task, istruzione e prompt di Qwen; la configurazione `generationConfig` serve soltanto a scegliere il formato di invocazione nativo Google.
+
+Per preparare il run:
+
+```bash
+cp .env.example .env
+# inserisci GEMINI_API_KEY=... in .env
+make plan-bbh-gemini
+```
+
+Poi imposta esplicitamente `run.dry_run: false` nel YAML Gemini e lancia `make run-bbh-gemini`. Il prezzo iniziale inserito nel YAML è $0,75 / milione token input e $3,75 / milione token output; verifica il listino Google prima di un benchmark esteso, perché i token di thinking sono conteggiati come output dal runner.
 
 ## Accesso a Jev e costi
 

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from system_one_bench.adapters import (
+    GeminiAdapter,
     JevAdapter,
     LmStudioQwenAdapter,
     MlxQwenAdapter,
@@ -88,6 +89,8 @@ def run_benchmark(config: BenchmarkConfig) -> Path:
 def create_adapter(config: BenchmarkConfig) -> ClassifierAdapter:
     """Create the chosen adapter at the last responsible moment."""
     match config.model.kind:
+        case "gemini":
+            return GeminiAdapter(config.model)
         case "jev":
             return JevAdapter(config.model)
         case "jev_openrouter":

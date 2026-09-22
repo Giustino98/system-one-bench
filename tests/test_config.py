@@ -27,3 +27,18 @@ def test_bbh_configs_are_safe_and_enable_native_qwen_thinking() -> None:
     assert jev.run.dry_run is qwen.run.dry_run is True
     assert jev.dataset.tasks == qwen.dataset.tasks
     assert jev.dataset.instruction == qwen.dataset.instruction
+
+
+def test_gemini_bbh_config_is_safe_and_matches_the_shared_protocol() -> None:
+    root = Path(__file__).parents[1]
+    gemini = load_config(root / "configs" / "bbh-logical-deduction-gemini-3.8-flash.yaml")
+    qwen = load_config(root / "configs" / "bbh-logical-deduction-qwen3-14b.yaml")
+
+    assert gemini.model.kind == "gemini"
+    assert gemini.model.name == "gemini-3.8-flash"
+    assert gemini.model.api_key_env == "GEMINI_API_KEY"
+    assert gemini.model.thinking is True
+    assert gemini.model.thinking_level == "medium"
+    assert gemini.run.dry_run is True
+    assert gemini.dataset.tasks == qwen.dataset.tasks
+    assert gemini.dataset.instruction == qwen.dataset.instruction

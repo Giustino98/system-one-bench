@@ -1,0 +1,31 @@
+# Safe cloud smoke configuration. Set dry_run to false only after reviewing the plan.
+dataset:
+  kind: bbh_logical_deduction
+  name: lighteval/bbh
+  revision: 1b61f099fcbf9e55691ef8cc6b4b8fb431dae097
+  split: train
+  tasks:
+    - logical_deduction_three_objects
+    - logical_deduction_five_objects
+    - logical_deduction_seven_objects
+  instruction: Choose the option that follows from the problem.
+  limit: 3
+model:
+  kind: gemini
+  name: gemini-3.8-flash
+  api_key_env: GEMINI_API_KEY
+  base_url: https://generativelanguage.googleapis.com/v1beta
+  timeout_seconds: 120
+  max_retries: 3
+  max_tokens: 1024
+  thinking: true
+  thinking_level: medium
+  temperature: 0.0
+  pricing:
+    input_per_million_usd: 0.75
+    output_per_million_usd: 3.75
+run:
+  output_dir: results
+  seed: 42
+  dry_run: true
+  persist_raw_responses: true

@@ -3,12 +3,14 @@ LOCAL_CONFIG ?= configs/banking77-mlx-qwen.yaml
 JEV_CONFIG ?= configs/banking77-jev-openrouter.yaml
 BBH_QWEN_CONFIG ?= configs/bbh-logical-deduction-qwen3-14b.yaml
 BBH_JEV_CONFIG ?= configs/bbh-logical-deduction-jev-openrouter.yaml
+BBH_GEMINI_CONFIG ?= configs/bbh-logical-deduction-gemini-3.8-flash.yaml
 ENV_FILE ?= .env
 
 .DEFAULT_GOAL := help
 
 .PHONY: help setup test lint format-check typecheck check validate-local plan-local \
-	run-local validate-jev plan-jev run-jev plan-bbh-qwen run-bbh-qwen plan-bbh-jev run-bbh-jev
+	run-local validate-jev plan-jev run-jev plan-bbh-qwen run-bbh-qwen plan-bbh-jev run-bbh-jev \
+	plan-bbh-gemini run-bbh-gemini
 
 help: ## Show the available commands.
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -63,3 +65,11 @@ plan-bbh-jev: ## Validate and print the safe Jev BBH smoke-test plan.
 run-bbh-jev: ## Run Jev BBH (requires a key and dry_run: false).
 	@test -f $(ENV_FILE) || { echo "Missing $(ENV_FILE). Copy .env.example and add the required API key."; exit 1; }
 	$(UV) run --env-file $(ENV_FILE) system-one-bench run $(BBH_JEV_CONFIG)
+
+plan-bbh-gemini: ## Validate and print the safe Gemini 3.8 Flash BBH smoke-test plan.
+	$(UV) run system-one-bench validate-config $(BBH_GEMINI_CONFIG)
+	$(UV) run system-one-bench plan $(BBH_GEMINI_CONFIG)
+
+run-bbh-gemini: ## Run Gemini 3.8 Flash BBH (requires a key and dry_run: false).
+	@test -f $(ENV_FILE) || { echo "Missing $(ENV_FILE). Copy .env.example and add the required API key."; exit 1; }
+	$(UV) run --env-file $(ENV_FILE) system-one-bench run $(BBH_GEMINI_CONFIG)
