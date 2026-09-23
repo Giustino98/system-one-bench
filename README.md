@@ -72,11 +72,11 @@ I due YAML usano esclusivamente:
 
 Il loader legge `lighteval/bbh`, mirror Hugging Face dei dati BIG-Bench Hard, fissato alla revisione `1b61f099fcbf9e55691ef8cc6b4b8fb431dae097`. Il limite è applicato **per task**, quindi `limit: 3` produce nove esempi. Input, choices e indice target vengono convertiti in un unico domain model multiple-choice con chiavi canoniche `A/B/C/...`.
 
-La baseline locale identifica il checkpoint come `mlx-community/Qwen3-14B-4bit` e usa la conversione MLX 4-bit già caricata in LM Studio con API identifier `qwen/qwen3-14b`. L'adapter chiama la REST API nativa con `reasoning: on`, conserva il reasoning separato e valuta soltanto la choice canonica nell'ultima riga `ANSWER: X`; il parser non fa fuzzy matching. L'adapter MLX diretto rimane disponibile e passa sempre `enable_thinking=thinking` al chat template, quindi anche una futura baseline no-think è esplicitamente disabilitata.
+La baseline locale identifica il checkpoint come `mlx-community/Qwen3-14B-4bit` e usa la conversione MLX 4-bit già caricata in LM Studio con API identifier `qwen/qwen3-14b`. L'adapter chiama l'endpoint OpenAI-compatible di LM Studio con uno JSON Schema dinamico (`{"choice": "A"}` e enum limitato alle alternative dell'esempio). Il reasoning Qwen resta attivo tramite il soft switch nativo `/think`, viene letto separatamente da `reasoning`/`reasoning_content` e non entra nel parsing della risposta finale. L'adapter MLX diretto rimane disponibile e passa sempre `enable_thinking=thinking` al chat template, quindi anche una futura baseline no-think è esplicitamente disabilitata.
 
-Su un Mac Apple Silicon con 16 GB il 14B 4-bit è vicino al limite pratico: chiudi applicazioni pesanti e non caricare contemporaneamente lo stesso checkpoint in LM Studio. Il primo avvio scarica il modello; assicurati di avere spazio libero adeguato. La configurazione usa sampling raccomandato per il thinking (`temperature: 0.6`, `top_p: 0.95`, `top_k: 20`) e 1.024 token massimi, non il vecchio decoding greedy da 12 token di BANKING77.
+Su un Mac Apple Silicon con 16 GB il 14B 4-bit è vicino al limite pratico: chiudi applicazioni pesanti e non caricare contemporaneamente lo stesso checkpoint in LM Studio. Il primo avvio scarica il modello; assicurati di avere spazio libero adeguato. La configurazione usa sampling raccomandato per il thinking (`temperature: 0.6`, `top_p: 0.95`, `top_k: 20`), un tetto di 8.192 output token e timeout per richiesta di 30 minuti. Il tetto non forza il modello a consumare tutti i token, ma evita di troncare prematuramente i casi più complessi.
 
-Tutte e tre le configurazioni sono sicure per default:
+I comandi `plan` non eseguono inferenze. Controlla sempre il valore corrente di `run.dry_run` prima dei comandi `run`; la configurazione Qwen locale è pronta per il run completo (`limit: null`, `dry_run: false`):
 
 ```bash
 make plan-bbh-qwen
@@ -84,7 +84,7 @@ make plan-bbh-jev
 make plan-bbh-gemini
 ```
 
-Quando vuoi eseguire lo smoke test, cambia consapevolmente `run.dry_run` a `false` nel relativo YAML e lancia:
+Quando vuoi eseguire, avvia prima LM Studio con il modello `qwen/qwen3-14b` e poi lancia:
 
 ```bash
 make run-bbh-qwen  # locale, nessuna API key
@@ -92,7 +92,7 @@ make run-bbh-jev   # usa OPENROUTER_API_KEY da .env
 make run-bbh-gemini # usa GEMINI_API_KEY da .env
 ```
 
-Non aumentare/rimuovere `limit` prima di avere confrontato gli artefatti smoke. Ogni record conserva task, choices, risposta, latenza e raw output; per Qwen conserva anche il reasoning separato, per Jev probabilità, usage e costo quando restituiti dal provider.
+Ogni record conserva task, choices, risposta, latenza, finish reason e raw output; per Qwen conserva anche il reasoning separato, per Jev probabilità, usage e costo quando restituiti dal provider. Nel run Qwen `continue_on_error: true`: timeout, errori HTTP o payload non validi vengono salvati come record `__error__`, contati come errori e il benchmark passa al campione successivo. Il summary viene quindi prodotto anche in presenza di singoli fallimenti.
 
 ### Gemini 3.8 Flash
 
@@ -177,6 +177,7 @@ L'endpoint OpenRouter Decisions è ancora alpha e arrotonda le probabilità a du
 | Accuracy | quota di intenti corretti | tutti i modelli |
 | Accuracy per task | accuratezza separata per 3, 5 e 7 oggetti | BBH |
 | Macro-F1 | media F1 con peso uguale alle 77 classi | tutti i modelli |
+| Error rate | quota di richieste fallite ma registrate senza fermare il run | tutti i modelli |
 | p50 / p95 latency | mediana e coda lunga per richiesta | tutti i modelli |
 | Costo stimato | costo provider, oppure token osservati × rate YAML | solo con usage completo |
 | Multiclass Brier score | qualità probabilistica; minore è meglio | solo quando arrivano probabilità per label |
@@ -187,7 +188,7 @@ La baseline MLX non inventa pseudo-probabilità: Brier ed ECE restano `null` fin
 ## Qualità e limiti sperimentali
 
 - Su BANKING77 i modelli vedono identiche label canoniche (`cash_withdrawal`, ecc.) con descrizioni ottenute sostituendo gli underscore. Su BBH vedono lo stesso testo e le stesse alternative originali.
-- Il Qwen è forzato a generare una label esatta. Un output fuori vocabolario viene salvato con prefisso `__invalid__:` e contato come errore, senza interrompere o correggere semanticamente il run; il summary espone anche `invalid_output_rate`.
+- Qwen usa un enum JSON Schema specifico per esempio. Un errore di generazione, trasporto o parsing viene salvato con prefisso `__error__:` e contato sia nell'`invalid_output_rate` sia nell'`error_rate`, senza interrompere il run.
 - L'adapter Jev conserva il payload della risposta solo se `persist_raw_responses: true`. I summary non contengono chiavi.
 - La latenza è end-to-end osservata dal processo client; include rete per Jev e non è un benchmark server-side.
 - OpenRouter aggiunge un hop di rete e restituisce probabilità arrotondate: latenza e calibrazione vanno tenute separate da una futura esecuzione TypeSafe diretta.

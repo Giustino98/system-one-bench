@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from system_one_bench.adapters import (
 from system_one_bench.adapters.base import ClassifierAdapter
 from system_one_bench.config import BenchmarkConfig
 from system_one_bench.dataset import load_benchmark_dataset
-from system_one_bench.domain import PredictionRecord, RunSummary
+from system_one_bench.domain import Prediction, PredictionRecord, RunSummary
 from system_one_bench.metrics import compute_metrics, estimate_cost_usd
 from system_one_bench.persistence import RunWriter
 
@@ -58,7 +59,26 @@ def run_benchmark(config: BenchmarkConfig) -> Path:
     try:
         for position, example in enumerate(examples, start=1):
             logger.info("Classifying item %s/%s", position, len(examples))
-            prediction = adapter.classify(example)
+            started_at = time.perf_counter()
+            try:
+                prediction = adapter.classify(example)
+            except Exception as error:
+                if not config.run.continue_on_error:
+                    raise
+                latency_ms = (time.perf_counter() - started_at) * 1_000
+                error_message = f"{type(error).__name__}: {error}"
+                logger.exception(
+                    "Item %s/%s failed; recording the error and continuing",
+                    position,
+                    len(examples),
+                )
+                prediction = Prediction(
+                    predicted_choice=f"__error__:{type(error).__name__}",
+                    probabilities=None,
+                    latency_ms=latency_ms,
+                    error=error_message,
+                    raw_response={"error": error_message},
+                )
             record = PredictionRecord(
                 example=example, prediction=prediction, model_name=adapter.model_name
             )

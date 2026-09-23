@@ -41,6 +41,8 @@ class Prediction:
     output_tokens: int | None = None
     cost_usd: float | None = None
     reasoning: str | None = None
+    finish_reason: str | None = None
+    error: str | None = None
     raw_response: dict[str, Any] | None = None
 
 

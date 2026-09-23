@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Mapping
 from typing import Any
@@ -32,11 +33,17 @@ class LmStudioQwenAdapter:
             return self._classify_native(example)
         payload: dict[str, Any] = {
             "model": self._config.api_model or self._config.name,
-            "messages": _messages(example),
+            "messages": _messages(
+                example,
+                thinking=self._config.thinking,
+                structured=self._config.structured_output,
+            ),
             "max_tokens": self._config.max_tokens,
             "temperature": self._config.temperature,
             "stream": False,
         }
+        if self._config.structured_output:
+            payload["response_format"] = _structured_response_format(example)
         if self._config.top_p is not None:
             payload["top_p"] = self._config.top_p
         if self._config.top_k is not None:
@@ -47,7 +54,11 @@ class LmStudioQwenAdapter:
         response.raise_for_status()
         body: dict[str, Any] = response.json()
         latency_ms = (time.perf_counter() - start) * 1_000
-        selected = _parse_choice(body, example)
+        selected = (
+            _parse_structured_choice(body, example)
+            if self._config.structured_output
+            else _parse_choice(body, example)
+        )
         usage = body.get("usage")
         if not isinstance(usage, Mapping):
             usage = {}
@@ -57,6 +68,8 @@ class LmStudioQwenAdapter:
             latency_ms=latency_ms,
             input_tokens=_integer_or_none(usage.get("prompt_tokens")),
             output_tokens=_integer_or_none(usage.get("completion_tokens")),
+            reasoning=_parse_openai_reasoning(body),
+            finish_reason=_parse_finish_reason(body),
             raw_response=body,
         )
 
@@ -92,6 +105,7 @@ class LmStudioQwenAdapter:
             input_tokens=_integer_or_none(stats.get("input_tokens")),
             output_tokens=_integer_or_none(stats.get("total_output_tokens")),
             reasoning=reasoning,
+            finish_reason=_string_or_none(stats.get("stop_reason")),
             raw_response=body,
         )
 
@@ -99,15 +113,38 @@ class LmStudioQwenAdapter:
         self._client.close()
 
 
-def _messages(example: ChoiceExample) -> list[dict[str, str]]:
+def _messages(example: ChoiceExample, *, thinking: bool, structured: bool) -> list[dict[str, str]]:
+    thinking_switch = "/think" if thinking else "/no_think"
     return [
-        {"role": "system", "content": "Solve the single-choice problem."},
-        {"role": "user", "content": _user_prompt(example)},
+        {
+            "role": "system",
+            "content": f"Solve the single-choice problem. {thinking_switch}",
+        },
+        {"role": "user", "content": _user_prompt(example, structured=structured)},
     ]
 
 
-def _user_prompt(example: ChoiceExample) -> str:
-    return build_choice_prompt(example)
+def _user_prompt(example: ChoiceExample, *, structured: bool = False) -> str:
+    answer_instruction = (
+        "Return only the choice using the required response schema." if structured else None
+    )
+    return build_choice_prompt(example, answer_instruction=answer_instruction)
+
+
+def _structured_response_format(example: ChoiceExample) -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "benchmark_choice",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {"choice": {"type": "string", "enum": list(example.choice_keys)}},
+                "required": ["choice"],
+                "additionalProperties": False,
+            },
+        },
+    }
 
 
 def _parse_native_output(body: Mapping[str, Any]) -> tuple[str, str | None]:
@@ -130,6 +167,31 @@ def _parse_native_output(body: Mapping[str, Any]) -> tuple[str, str | None]:
 
 
 def _parse_choice(body: Mapping[str, Any], example: ChoiceExample) -> str:
+    message = _completion_message(body)
+    content = message.get("content")
+    if not isinstance(content, str):
+        raise ValueError("LM Studio assistant message did not contain text.")
+    return _extract_choice(content, example)
+
+
+def _parse_structured_choice(body: Mapping[str, Any], example: ChoiceExample) -> str:
+    message = _completion_message(body)
+    content = message.get("content")
+    if not isinstance(content, str):
+        raise ValueError("LM Studio structured response did not contain text.")
+    try:
+        parsed = json.loads(content)
+    except json.JSONDecodeError as error:
+        raise ValueError("LM Studio structured response was not valid JSON.") from error
+    if not isinstance(parsed, dict) or set(parsed) != {"choice"}:
+        raise ValueError("LM Studio structured response must contain only 'choice'.")
+    selected = parsed["choice"]
+    if not isinstance(selected, str) or selected not in example.choices:
+        raise ValueError("LM Studio structured response contained an invalid choice.")
+    return selected
+
+
+def _completion_message(body: Mapping[str, Any]) -> Mapping[str, Any]:
     choices = body.get("choices")
     if not isinstance(choices, list) or not choices:
         raise ValueError("LM Studio response did not include a completion choice.")
@@ -139,11 +201,28 @@ def _parse_choice(body: Mapping[str, Any], example: ChoiceExample) -> str:
     message = first.get("message")
     if not isinstance(message, Mapping):
         raise ValueError("LM Studio response did not include an assistant message.")
-    content = message.get("content")
-    if not isinstance(content, str):
-        raise ValueError("LM Studio assistant message did not contain text.")
-    return _extract_choice(content, example)
+    return message
+
+
+def _parse_openai_reasoning(body: Mapping[str, Any]) -> str | None:
+    message = _completion_message(body)
+    for key in ("reasoning", "reasoning_content"):
+        reasoning = message.get(key)
+        if isinstance(reasoning, str) and reasoning.strip():
+            return reasoning.strip()
+    return None
+
+
+def _parse_finish_reason(body: Mapping[str, Any]) -> str | None:
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], Mapping):
+        return None
+    return _string_or_none(choices[0].get("finish_reason"))
 
 
 def _integer_or_none(value: Any) -> int | None:
     return value if isinstance(value, int) else None
+
+
+def _string_or_none(value: Any) -> str | None:
+    return value if isinstance(value, str) else None

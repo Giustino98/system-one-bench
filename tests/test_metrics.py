@@ -7,6 +7,7 @@ def _record(
     predicted: str,
     probability: dict[str, float] | None,
     task: str = "three_objects",
+    error: str | None = None,
 ) -> PredictionRecord:
     return PredictionRecord(
         example=ChoiceExample(
@@ -18,7 +19,12 @@ def _record(
             "Choose one.",
         ),
         prediction=Prediction(
-            predicted, probability, latency_ms=10, input_tokens=5, output_tokens=2
+            predicted,
+            probability,
+            latency_ms=10,
+            input_tokens=5,
+            output_tokens=2,
+            error=error,
         ),
         model_name="test-model",
     )
@@ -43,8 +49,20 @@ def test_metrics_hide_calibration_without_probabilities_and_count_invalids() -> 
     metrics = compute_metrics([_record("A", "__invalid__:almost", None)], ["A", "B"])
 
     assert metrics["invalid_output_rate"] == 1.0
+    assert metrics["error_rate"] == 0.0
     assert metrics["brier_score"] is None
     assert metrics["ece"] is None
+
+
+def test_metrics_count_recorded_execution_errors() -> None:
+    metrics = compute_metrics(
+        [_record("A", "__error__:TimeoutError", None, error="TimeoutError: timed out")],
+        ["A", "B"],
+    )
+
+    assert metrics["accuracy"] == 0.0
+    assert metrics["invalid_output_rate"] == 1.0
+    assert metrics["error_rate"] == 1.0
 
 
 def test_cost_requires_complete_usage_and_applies_rates() -> None:

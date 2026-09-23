@@ -38,6 +38,7 @@ class ModelConfig(BaseModel):
     name: str
     api_model: str | None = None
     lmstudio_api: Literal["openai", "native"] = "openai"
+    structured_output: bool = False
     api_key_env: str = "TYPESAFE_API_KEY"
     base_url: HttpUrl | None = None
     timeout_seconds: float = Field(default=30.0, gt=0)
@@ -59,6 +60,7 @@ class RunConfig(BaseModel):
     seed: int = 42
     dry_run: bool = True
     persist_raw_responses: bool = False
+    continue_on_error: bool = False
 
 
 class BenchmarkConfig(BaseModel):
@@ -76,6 +78,12 @@ class BenchmarkConfig(BaseModel):
             self.model.base_url = "https://api.typesafe.ai"  # type: ignore[assignment]
         if self.model.kind == "jev_openrouter" and self.model.base_url is None:
             self.model.base_url = "https://openrouter.ai/api/alpha"  # type: ignore[assignment]
+        if (
+            self.model.kind == "lmstudio_qwen"
+            and self.model.structured_output
+            and self.model.lmstudio_api != "openai"
+        ):
+            raise ValueError("LM Studio structured output requires the OpenAI-compatible API.")
         if self.dataset.kind == "bbh_logical_deduction" and not self.dataset.tasks:
             raise ValueError("BBH logical deduction requires at least one dataset task.")
         return self
