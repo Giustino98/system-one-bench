@@ -5,17 +5,18 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Mapping, Sequence
+from json import JSONDecodeError, loads
 from typing import Any
 
 import httpx
 
-from system_one_bench.adapters.lmstudio_qwen import _user_prompt
-from system_one_bench.adapters.mlx_qwen import _extract_choice
+from system_one_bench.adapters.prompts import build_choice_prompt
 from system_one_bench.config import ModelConfig
 from system_one_bench.domain import ChoiceExample, Prediction
 
 DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 SYSTEM_INSTRUCTION = "Solve the single-choice problem."
+STRUCTURED_ANSWER_INSTRUCTION = 'Return the selected choice in the JSON field "choice".'
 
 
 class GeminiAdapter:
@@ -96,15 +97,39 @@ def _build_payload(example: ChoiceExample, config: ModelConfig) -> dict[str, Any
             "thinkingLevel": config.thinking_level or "medium",
             "includeThoughts": True,
         }
+    generation_config["responseMimeType"] = "application/json"
+    generation_config["responseJsonSchema"] = _choice_schema(example)
     return {
         "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
-        "contents": [{"role": "user", "parts": [{"text": _user_prompt(example)}]}],
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": build_choice_prompt(
+                            example, answer_instruction=STRUCTURED_ANSWER_INSTRUCTION
+                        )
+                    }
+                ],
+            }
+        ],
         "generationConfig": generation_config,
     }
 
 
+def _choice_schema(example: ChoiceExample) -> dict[str, Any]:
+    """Constrain output to one canonical answer key for this exact example."""
+    return {
+        "type": "object",
+        "properties": {"choice": {"type": "string", "enum": list(example.choice_keys)}},
+        "required": ["choice"],
+        "additionalProperties": False,
+        "propertyOrdering": ["choice"],
+    }
+
+
 def _parse_choice(body: Mapping[str, Any], example: ChoiceExample) -> tuple[str, str | None]:
-    """Separate Gemini thought summaries and score only the final assistant content."""
+    """Separate thought summaries and parse only the schema-constrained final JSON."""
     candidates = body.get("candidates")
     if not isinstance(candidates, Sequence) or isinstance(candidates, str) or not candidates:
         raise ValueError("Gemini response did not include a candidate.")
@@ -132,7 +157,21 @@ def _parse_choice(body: Mapping[str, Any], example: ChoiceExample) -> tuple[str,
     if not answers:
         raise ValueError("Gemini response did not include final assistant text.")
     reasoning = "\n".join(thoughts).strip() or None
-    return _extract_choice("\n".join(answers).strip(), example), reasoning
+    return _parse_structured_choice("\n".join(answers).strip(), example), reasoning
+
+
+def _parse_structured_choice(text: str, example: ChoiceExample) -> str:
+    """Defensively validate Gemini JSON even though the API schema constrains it."""
+    try:
+        value = loads(text)
+    except JSONDecodeError:
+        return f"__invalid__:{text}"
+    if not isinstance(value, Mapping) or set(value) != {"choice"}:
+        return f"__invalid__:{text}"
+    choice = value.get("choice")
+    if not isinstance(choice, str) or choice not in example.choices:
+        return f"__invalid__:{text}"
+    return choice
 
 
 def _usage_tokens(body: Mapping[str, Any]) -> tuple[int | None, int | None]:

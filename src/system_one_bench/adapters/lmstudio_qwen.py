@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from system_one_bench.adapters.mlx_qwen import _extract_choice
+from system_one_bench.adapters.prompts import build_choice_prompt
 from system_one_bench.config import ModelConfig
 from system_one_bench.domain import ChoiceExample, Prediction
 
@@ -106,13 +107,7 @@ def _messages(example: ChoiceExample) -> list[dict[str, str]]:
 
 
 def _user_prompt(example: ChoiceExample) -> str:
-    options = "\n".join(f"({key}) {text}" for key, text in example.choices.items())
-    suffix = (
-        f"Return the final line exactly as {example.answer_prefix} <choice>."
-        if example.answer_prefix
-        else "Reply with exactly one allowed choice key."
-    )
-    return f"{example.instruction}\n\nProblem:\n{example.text}\n\nChoices:\n{options}\n\n{suffix}"
+    return build_choice_prompt(example)
 
 
 def _parse_native_output(body: Mapping[str, Any]) -> tuple[str, str | None]:

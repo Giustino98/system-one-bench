@@ -96,7 +96,7 @@ Non aumentare/rimuovere `limit` prima di avere confrontato gli artefatti smoke. 
 
 ### Gemini 3.8 Flash
 
-`configs/bbh-logical-deduction-gemini-3.8-flash.yaml` chiama direttamente la Gemini API con `gemini-3.8-flash`, API key nell'header `x-goog-api-key`, thinking level `medium` e thought summaries persistiti separatamente dalla risposta finale. Il YAML usa lo stesso dataset, task, istruzione e prompt di Qwen; la configurazione `generationConfig` serve soltanto a scegliere il formato di invocazione nativo Google.
+`configs/bbh-logical-deduction-gemini-3.8-flash.yaml` chiama direttamente la Gemini API con `gemini-3.8-flash`, API key nell'header `x-goog-api-key`, thinking level `medium` e thought summaries persistiti separatamente dalla risposta finale. Il YAML usa lo stesso dataset, task e istruzione di Qwen. La richiesta impone `responseMimeType: application/json` e uno JSON Schema con il solo campo `choice`, vincolato alle alternative dell'esempio: il parser valuta quel campo, non testo libero o markdown.
 
 Per preparare il run:
 

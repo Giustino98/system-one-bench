@@ -34,10 +34,18 @@ def test_payload_keeps_the_shared_problem_and_enables_gemini_thinking() -> None:
     user_text = payload["contents"][0]["parts"][0]["text"]
     assert "The red object is first." in user_text
     assert "(A) The red object is first." in user_text
-    assert "Return the final line exactly as ANSWER: <choice>." in user_text
+    assert 'Return the selected choice in the JSON field "choice".' in user_text
     assert payload["generationConfig"]["thinkingConfig"] == {
         "thinkingLevel": "medium",
         "includeThoughts": True,
+    }
+    assert payload["generationConfig"]["responseMimeType"] == "application/json"
+    assert payload["generationConfig"]["responseJsonSchema"] == {
+        "type": "object",
+        "properties": {"choice": {"type": "string", "enum": ["A", "B"]}},
+        "required": ["choice"],
+        "additionalProperties": False,
+        "propertyOrdering": ["choice"],
     }
 
 
@@ -48,7 +56,7 @@ def test_parser_separates_thought_summary_and_scores_only_final_text() -> None:
                 "content": {
                     "parts": [
                         {"thought": True, "text": "The red object is given as first."},
-                        {"text": "ANSWER: A"},
+                        {"text": '{"choice":"A"}'},
                     ]
                 }
             }
@@ -59,6 +67,17 @@ def test_parser_separates_thought_summary_and_scores_only_final_text() -> None:
 
     assert choice == "A"
     assert reasoning == "The red object is given as first."
+
+
+def test_parser_marks_malformed_or_out_of_vocab_structured_output_invalid() -> None:
+    malformed = {"candidates": [{"content": {"parts": [{"text": "not json"}]}}]}
+    out_of_vocab = {"candidates": [{"content": {"parts": [{"text": '{"choice":"C"}'}]}}]}
+
+    malformed_choice, _ = _parse_choice(malformed, _example())
+    out_of_vocab_choice, _ = _parse_choice(out_of_vocab, _example())
+
+    assert malformed_choice.startswith("__invalid__:")
+    assert out_of_vocab_choice.startswith("__invalid__:")
 
 
 def test_usage_counts_thought_tokens_as_output() -> None:
