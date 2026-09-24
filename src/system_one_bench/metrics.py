@@ -18,19 +18,15 @@ def compute_metrics(
     if not records:
         raise ValueError("Cannot compute metrics for an empty run.")
     expected = [record.example.expected_choice for record in records]
-    predicted = [record.prediction.predicted_choice for record in records]
+    predicted = [record.prediction.predicted_choice or "__invalid__" for record in records]
     latencies = np.asarray([record.prediction.latency_ms for record in records], dtype=float)
-    invalid_count = sum(
-        record.prediction.predicted_choice not in record.example.choices for record in records
-    )
-    error_count = sum(record.prediction.error is not None for record in records)
+    invalid_count = sum(record.prediction.predicted_choice is None for record in records)
     metrics: dict[str, float | None] = {
         "accuracy": float(accuracy_score(expected, predicted)),
         "macro_f1": float(
             f1_score(expected, predicted, labels=list(choices), average="macro", zero_division=0)
         ),
         "invalid_output_rate": invalid_count / len(records),
-        "error_rate": error_count / len(records),
         "latency_p50_ms": float(np.percentile(latencies, 50)),
         "latency_p95_ms": float(np.percentile(latencies, 95)),
         "brier_score": None,
@@ -41,7 +37,9 @@ def compute_metrics(
         by_task[record.example.task].append(record)
     for task, task_records in sorted(by_task.items()):
         task_expected = [record.example.expected_choice for record in task_records]
-        task_predicted = [record.prediction.predicted_choice for record in task_records]
+        task_predicted = [
+            record.prediction.predicted_choice or "__invalid__" for record in task_records
+        ]
         metrics[f"accuracy_{task}"] = float(accuracy_score(task_expected, task_predicted))
 
     probabilities = [record.prediction.probabilities for record in records]

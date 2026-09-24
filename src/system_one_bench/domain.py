@@ -17,7 +17,6 @@ class ChoiceExample:
     choices: Mapping[str, str]
     expected_choice: str
     instruction: str
-    answer_prefix: str | None = None
 
     def __post_init__(self) -> None:
         if not self.choices:
@@ -34,7 +33,7 @@ class ChoiceExample:
 class Prediction:
     """One adapter decision and its observable execution metadata."""
 
-    predicted_choice: str
+    predicted_choice: str | None
     probabilities: dict[str, float] | None
     latency_ms: float
     input_tokens: int | None = None
@@ -42,7 +41,6 @@ class Prediction:
     cost_usd: float | None = None
     reasoning: str | None = None
     finish_reason: str | None = None
-    error: str | None = None
     raw_response: dict[str, Any] | None = None
 
 

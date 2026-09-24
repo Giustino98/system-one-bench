@@ -1,6 +1,4 @@
-# Safe smoke configuration: no request is made until dry_run is explicitly false.
 dataset:
-  kind: bbh_logical_deduction
   name: lighteval/bbh
   revision: 1b61f099fcbf9e55691ef8cc6b4b8fb431dae097
   split: train
@@ -9,7 +7,7 @@ dataset:
     - logical_deduction_five_objects
     - logical_deduction_seven_objects
   instruction: Choose the option that follows from the problem.
-  limit: null  # Per task: nine examples total in the smoke run.
+  limit: null
 model:
   kind: jev_openrouter
   name: typesafe/jev-1.13
@@ -23,5 +21,4 @@ model:
 run:
   output_dir: results
   seed: 42
-  dry_run: false
-  persist_raw_responses: true
+  dry_run: true

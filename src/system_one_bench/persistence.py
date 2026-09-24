@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -18,14 +18,13 @@ from system_one_bench.domain import (
 class RunWriter:
     """Owns a single run directory and writes JSON/JSONL artifacts."""
 
-    def __init__(self, directory: Path, persist_raw_responses: bool) -> None:
+    def __init__(self, directory: Path) -> None:
         self.directory = directory
-        self._persist_raw_responses = persist_raw_responses
         directory.mkdir(parents=True, exist_ok=False)
         self._records_path = directory / "predictions.jsonl"
 
     @classmethod
-    def resume(cls, directory: Path, persist_raw_responses: bool) -> RunWriter:
+    def resume(cls, directory: Path) -> RunWriter:
         """Re-open an interrupted run without replacing its append-only records."""
         if not directory.is_dir():
             raise ValueError(f"Resume directory does not exist: {directory}")
@@ -33,7 +32,6 @@ class RunWriter:
             raise ValueError(f"Resume directory has no metadata.json: {directory}")
         writer = cls.__new__(cls)
         writer.directory = directory
-        writer._persist_raw_responses = persist_raw_responses
         writer._records_path = directory / "predictions.jsonl"
         return writer
 
@@ -82,11 +80,8 @@ class RunWriter:
         self._write_json("metadata.json", metadata)
 
     def append_record(self, record: PredictionRecord) -> None:
-        safe_record = record
-        if not self._persist_raw_responses:
-            safe_record = replace(record, prediction=replace(record.prediction, raw_response=None))
         with self._records_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(safe_record.as_dict(), ensure_ascii=False) + "\n")
+            handle.write(json.dumps(record.as_dict(), ensure_ascii=False) + "\n")
 
     def write_summary(self, summary: RunSummary) -> None:
         self._write_json("summary.json", asdict(summary))

@@ -2,21 +2,15 @@ from system_one_bench.domain import ChoiceExample, Prediction, PredictionRecord
 from system_one_bench.metrics import compute_metrics, estimate_cost_usd
 
 
-def _record(
+def record(
     expected: str,
-    predicted: str,
+    predicted: str | None,
     probability: dict[str, float] | None,
-    task: str = "three_objects",
-    error: str | None = None,
+    task: str,
 ) -> PredictionRecord:
     return PredictionRecord(
         example=ChoiceExample(
-            "id",
-            task,
-            "problem",
-            {"A": "first", "B": "second"},
-            expected,
-            "Choose one.",
+            "id", task, "problem", {"A": "first", "B": "second"}, expected, "Choose one."
         ),
         prediction=Prediction(
             predicted,
@@ -24,16 +18,15 @@ def _record(
             latency_ms=10,
             input_tokens=5,
             output_tokens=2,
-            error=error,
         ),
         model_name="test-model",
     )
 
 
-def test_metrics_include_global_and_per_task_accuracy() -> None:
+def test_metrics_include_per_task_accuracy_and_calibration() -> None:
     records = [
-        _record("A", "A", {"A": 0.9, "B": 0.1}, "three_objects"),
-        _record("B", "A", {"A": 0.6, "B": 0.4}, "five_objects"),
+        record("A", "A", {"A": 0.9, "B": 0.1}, "three_objects"),
+        record("B", "A", {"A": 0.6, "B": 0.4}, "five_objects"),
     ]
 
     metrics = compute_metrics(records, ["A", "B"])
@@ -45,25 +38,13 @@ def test_metrics_include_global_and_per_task_accuracy() -> None:
     assert metrics["ece"] is not None
 
 
-def test_metrics_hide_calibration_without_probabilities_and_count_invalids() -> None:
-    metrics = compute_metrics([_record("A", "__invalid__:almost", None)], ["A", "B"])
-
-    assert metrics["invalid_output_rate"] == 1.0
-    assert metrics["error_rate"] == 0.0
-    assert metrics["brier_score"] is None
-    assert metrics["ece"] is None
-
-
-def test_metrics_count_recorded_execution_errors() -> None:
-    metrics = compute_metrics(
-        [_record("A", "__error__:TimeoutError", None, error="TimeoutError: timed out")],
-        ["A", "B"],
-    )
+def test_none_is_counted_as_an_invalid_model_output() -> None:
+    metrics = compute_metrics([record("A", None, None, "three_objects")], ["A", "B"])
 
     assert metrics["accuracy"] == 0.0
     assert metrics["invalid_output_rate"] == 1.0
-    assert metrics["error_rate"] == 1.0
+    assert metrics["brier_score"] is None
 
 
-def test_cost_requires_complete_usage_and_applies_rates() -> None:
-    assert estimate_cost_usd([_record("A", "A", None)], 1.0, 2.0) == 9 / 1_000_000
+def test_cost_uses_complete_token_usage() -> None:
+    assert estimate_cost_usd([record("A", "A", None, "three_objects")], 1.0, 2.0) == 9 / 1_000_000

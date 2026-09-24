@@ -13,7 +13,9 @@ from system_one_bench.config import load_config
 from system_one_bench.runner import dry_run_plan, run_benchmark
 
 app = typer.Typer(
-    add_completion=False, no_args_is_help=True, help="Benchmark Jev against local classifiers."
+    add_completion=False,
+    no_args_is_help=True,
+    help="Benchmark Jev and Qwen on BBH Logical Deduction.",
 )
 
 
@@ -21,13 +23,6 @@ def _configure_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO, format="%(levelname)s %(message)s"
     )
-
-
-@app.command()
-def validate_config(config: Annotated[Path, typer.Argument(exists=True, readable=True)]) -> None:
-    """Parse and validate YAML without loading a dataset or calling any model."""
-    parsed = load_config(config)
-    typer.echo(json.dumps(parsed.model_dump(mode="json"), indent=2))
 
 
 @app.command()

@@ -1,6 +1,4 @@
-# Native MLX smoke configuration. The limit is per task (3 = 9 samples total).
 dataset:
-  kind: bbh_logical_deduction
   name: lighteval/bbh
   revision: 1b61f099fcbf9e55691ef8cc6b4b8fb431dae097
   split: train
@@ -13,17 +11,14 @@ dataset:
 model:
   kind: mlx_qwen
   name: lmstudio-community/Qwen3-14B-MLX-4bit
-  model_path: ~/.lmstudio/models/lmstudio-community/Qwen3-14B-MLX-4bit
-  structured_output: true
+  # Optional: point at an existing local checkout to avoid a download.
+  # model_path: ~/.lmstudio/models/lmstudio-community/Qwen3-14B-MLX-4bit
   max_tokens: 8192
-  thinking: true
-  temperature: 0
+  temperature: 0.0
   top_p: 0.95
   top_k: 20
   seed: 42
 run:
   output_dir: results
   seed: 42
-  dry_run: false
-  persist_raw_responses: true
-  continue_on_error: true
+  dry_run: true

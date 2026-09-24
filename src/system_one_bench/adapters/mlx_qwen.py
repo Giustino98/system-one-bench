@@ -4,21 +4,18 @@ from __future__ import annotations
 
 import gc
 import json
-import re
 import time
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from system_one_bench.config import ModelConfig
+from system_one_bench.config import QwenConfig
 from system_one_bench.domain import ChoiceExample, Prediction
 
 
 class MlxQwenAdapter:
     """Generate one canonical choice locally; load MLX lazily for lightweight tests."""
 
-    def __init__(self, config: ModelConfig) -> None:
-        if config.kind != "mlx_qwen":
-            raise ValueError("MlxQwenAdapter requires an 'mlx_qwen' model configuration.")
+    def __init__(self, config: QwenConfig) -> None:
         self._config = config
         self._model: Any | None = None
         self._tokenizer: Any | None = None
@@ -28,42 +25,25 @@ class MlxQwenAdapter:
     def model_name(self) -> str:
         return self._config.name
 
-    def classify(self, example: ChoiceExample) -> Prediction:
+    def predict(self, example: ChoiceExample) -> Prediction:
         model, tokenizer = self._load()
-        prompt = _prompt(
-            tokenizer,
-            example,
-            thinking=self._config.thinking,
-            structured=self._config.structured_output,
-        )
+        prompt = build_prompt(tokenizer, example)
         from mlx_lm import stream_generate
 
-        if not self._seeded and self._config.seed is not None:
+        if not self._seeded:
             import mlx.core as mx
 
             mx.random.seed(self._config.seed)
             self._seeded = True
 
-        generation_options: dict[str, Any] = {}
-        if (
-            self._config.temperature > 0
-            or self._config.top_p is not None
-            or self._config.top_k is not None
-        ):
-            from mlx_lm.sample_utils import make_sampler
+        from mlx_lm.sample_utils import make_sampler
 
-            sampler_options: dict[str, Any] = {"temp": self._config.temperature}
-            if self._config.top_p is not None:
-                sampler_options["top_p"] = self._config.top_p
-            if self._config.top_k is not None:
-                sampler_options["top_k"] = self._config.top_k
-            generation_options["sampler"] = make_sampler(**sampler_options)
-        if self._config.structured_output:
-            if not self._config.thinking:
-                raise ValueError("Post-thinking structured output requires thinking=true.")
-            generation_options["logits_processors"] = [
-                _post_thinking_json_processor(tokenizer, example)
-            ]
+        sampler = make_sampler(
+            temp=self._config.temperature,
+            top_p=self._config.top_p,
+            top_k=self._config.top_k,
+        )
+        logits_processors = [_post_thinking_json_processor(tokenizer, example)]
 
         start = time.perf_counter()
         output_parts: list[str] = []
@@ -73,7 +53,8 @@ class MlxQwenAdapter:
             tokenizer,
             prompt=prompt,
             max_tokens=self._config.max_tokens,
-            **generation_options,
+            sampler=sampler,
+            logits_processors=logits_processors,
         ):
             output_parts.append(response.text)
             last_response = response
@@ -81,12 +62,8 @@ class MlxQwenAdapter:
         if last_response is None:
             raise RuntimeError("MLX generation returned no response.")
         output = "".join(output_parts)
-        reasoning, final_answer = _split_thinking_output(output)
-        selected = _extract_choice(
-            final_answer,
-            example,
-            structured=self._config.structured_output,
-        )
+        reasoning, final_answer = split_thinking_output(output)
+        selected = parse_final_choice(final_answer, example)
         return Prediction(
             predicted_choice=selected,
             probabilities=None,
@@ -136,36 +113,23 @@ class MlxQwenAdapter:
         mx.clear_cache()
 
 
-def _prompt(
-    tokenizer: Any,
-    example: ChoiceExample,
-    *,
-    thinking: bool,
-    structured: bool = False,
-) -> str:
+def build_prompt(tokenizer: Any, example: ChoiceExample) -> str:
+    """Render the shared problem with Qwen's native thinking mode enabled."""
     options = "\n".join(f"({key}) {text}" for key, text in example.choices.items())
-    if structured:
-        format_instruction = '\n\nAfter thinking, return only {"choice":"<choice>"}.'
-    elif example.answer_prefix:
-        format_instruction = (
-            f"\n\nReturn the final line exactly as {example.answer_prefix} <choice>."
-        )
-    else:
-        format_instruction = "\n\nReply with exactly one allowed choice key."
     messages = [
         {"role": "system", "content": "Solve the single-choice problem."},
         {
             "role": "user",
             "content": (
                 f"{example.instruction}\n\nProblem:\n{example.text}\n\n"
-                f"Choices:\n{options}{format_instruction}"
+                f'Choices:\n{options}\n\nAfter thinking, return only {{"choice":"<choice>"}}.'
             ),
         },
     ]
     template_options: dict[str, Any] = {
         "tokenize": False,
         "add_generation_prompt": True,
-        "enable_thinking": thinking,
+        "enable_thinking": True,
     }
     rendered = tokenizer.apply_chat_template(messages, **template_options)
     if not isinstance(rendered, str):
@@ -173,7 +137,7 @@ def _prompt(
     return rendered
 
 
-def _split_thinking_output(output: str) -> tuple[str | None, str]:
+def split_thinking_output(output: str) -> tuple[str | None, str]:
     """Separate Qwen3's native think block from the answer used for scoring."""
     if "</think>" not in output:
         return None, output.strip()
@@ -182,39 +146,16 @@ def _split_thinking_output(output: str) -> tuple[str | None, str]:
     return reasoning or None, final_answer.strip()
 
 
-def _extract_choice(
-    answer: str,
-    example: ChoiceExample,
-    *,
-    structured: bool = False,
-) -> str:
-    """Parse one exact canonical key; BBH deliberately has no fuzzy fallback."""
-    if structured:
-        try:
-            parsed = json.loads(answer)
-        except json.JSONDecodeError:
-            return f"__invalid__:{answer.strip()}"
-        if not isinstance(parsed, dict) or set(parsed) != {"choice"}:
-            return f"__invalid__:{answer.strip()}"
-        selected = parsed["choice"]
-        if isinstance(selected, str) and selected in example.choices:
-            return selected
-        return f"__invalid__:{answer.strip()}"
-    if example.answer_prefix:
-        alternatives = "|".join(map(re.escape, example.choice_keys))
-        pattern = re.compile(
-            rf"^{re.escape(example.answer_prefix)}\s*(?:({alternatives})|\(({alternatives})\))$"
-        )
-        last_line = answer.rstrip().splitlines()[-1] if answer.strip() else ""
-        match = pattern.fullmatch(last_line)
-        if match is not None:
-            return match.group(1) or match.group(2)
-    else:
-        normalized = answer.strip().lower().replace("\\_", "_").replace(" ", "_")
-        for choice in example.choice_keys:
-            if normalized == choice.lower():
-                return choice
-    return f"__invalid__:{answer.strip()}"
+def parse_final_choice(answer: str, example: ChoiceExample) -> str | None:
+    """Parse the constrained final JSON; an unfinished generation is an invalid output."""
+    try:
+        payload = json.loads(answer)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict) or set(payload) != {"choice"}:
+        return None
+    choice = payload["choice"]
+    return choice if isinstance(choice, str) and choice in example.choices else None
 
 
 def _post_thinking_json_processor(

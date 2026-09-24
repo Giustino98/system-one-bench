@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import logging
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from system_one_bench.adapters import (
-    GeminiAdapter,
-    JevAdapter,
-    LmStudioQwenAdapter,
-    MlxQwenAdapter,
-    OpenRouterJevAdapter,
-)
-from system_one_bench.adapters.base import ClassifierAdapter
-from system_one_bench.config import BenchmarkConfig
-from system_one_bench.dataset import load_benchmark_dataset
-from system_one_bench.domain import Prediction, PredictionRecord, RunSummary
+from system_one_bench.adapters import MlxQwenAdapter, OpenRouterJevAdapter
+from system_one_bench.adapters.base import ModelAdapter
+from system_one_bench.config import BenchmarkConfig, JevConfig, QwenConfig
+from system_one_bench.dataset import load_bbh_dataset
+from system_one_bench.domain import PredictionRecord, RunSummary
 from system_one_bench.metrics import compute_metrics, estimate_cost_usd
 from system_one_bench.persistence import RunWriter
 
@@ -43,13 +36,13 @@ def run_benchmark(config: BenchmarkConfig, *, resume_directory: Path | None = No
         raise RuntimeError(
             "Refusing to run because run.dry_run is true. Set it to false explicitly."
         )
-    examples, choices = load_benchmark_dataset(config.dataset, seed=config.run.seed)
+    examples, choices = load_bbh_dataset(config.dataset, seed=config.run.seed)
     examples_by_identifier = {example.identifier: example for example in examples}
     if len(examples_by_identifier) != len(examples):
         raise ValueError("Dataset contains duplicate example identifiers; cannot support resume.")
     if resume_directory is None:
         run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + f"-{config.model.kind}"
-        writer = RunWriter(config.run.output_dir / run_id, config.run.persist_raw_responses)
+        writer = RunWriter(config.run.output_dir / run_id)
         writer.write_metadata(
             {
                 "run_id": run_id,
@@ -60,7 +53,7 @@ def run_benchmark(config: BenchmarkConfig, *, resume_directory: Path | None = No
         )
         records: list[PredictionRecord] = []
     else:
-        writer = RunWriter.resume(resume_directory, config.run.persist_raw_responses)
+        writer = RunWriter.resume(resume_directory)
         metadata = writer.read_metadata()
         _validate_resume_metadata(metadata, config, choices)
         run_id = _required_string(metadata, "run_id")
@@ -76,34 +69,14 @@ def run_benchmark(config: BenchmarkConfig, *, resume_directory: Path | None = No
     pending_examples = [
         example for example in examples if example.identifier not in completed_identifiers
     ]
-    adapter: ClassifierAdapter | None = None
+    adapter: ModelAdapter | None = None
     try:
         if pending_examples:
             adapter = create_adapter(config)
         for position, example in enumerate(pending_examples, start=len(records) + 1):
             logger.info("Classifying item %s/%s", position, len(examples))
-            started_at = time.perf_counter()
-            try:
-                assert adapter is not None
-                prediction = adapter.classify(example)
-            except Exception as error:
-                if not config.run.continue_on_error:
-                    raise
-                latency_ms = (time.perf_counter() - started_at) * 1_000
-                error_message = f"{type(error).__name__}: {error}"
-                logger.exception(
-                    "Item %s/%s failed; recording the error and continuing",
-                    position,
-                    len(examples),
-                )
-                prediction = Prediction(
-                    predicted_choice=f"__error__:{type(error).__name__}",
-                    probabilities=None,
-                    latency_ms=latency_ms,
-                    error=error_message,
-                    raw_response={"error": error_message},
-                )
             assert adapter is not None
+            prediction = adapter.predict(example)
             record = PredictionRecord(
                 example=example, prediction=prediction, model_name=adapter.model_name
             )
@@ -161,16 +134,10 @@ def _run_model_name(records: list[PredictionRecord], config: BenchmarkConfig) ->
     return config.model.name
 
 
-def create_adapter(config: BenchmarkConfig) -> ClassifierAdapter:
-    """Create the chosen adapter at the last responsible moment."""
-    match config.model.kind:
-        case "gemini":
-            return GeminiAdapter(config.model)
-        case "jev":
-            return JevAdapter(config.model)
-        case "jev_openrouter":
+def create_adapter(config: BenchmarkConfig) -> ModelAdapter:
+    """Construct one of the two supported model adapters."""
+    match config.model:
+        case JevConfig():
             return OpenRouterJevAdapter(config.model)
-        case "mlx_qwen":
+        case QwenConfig():
             return MlxQwenAdapter(config.model)
-        case "lmstudio_qwen":
-            return LmStudioQwenAdapter(config.model)

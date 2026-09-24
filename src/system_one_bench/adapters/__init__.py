@@ -1,14 +1,6 @@
-"""Implementations of the model-neutral classification adapter contract."""
+"""Benchmark model adapters."""
 
-from system_one_bench.adapters.gemini import GeminiAdapter
-from system_one_bench.adapters.jev import JevAdapter, OpenRouterJevAdapter
-from system_one_bench.adapters.lmstudio_qwen import LmStudioQwenAdapter
+from system_one_bench.adapters.jev import OpenRouterJevAdapter
 from system_one_bench.adapters.mlx_qwen import MlxQwenAdapter
 
-__all__ = [
-    "GeminiAdapter",
-    "JevAdapter",
-    "LmStudioQwenAdapter",
-    "MlxQwenAdapter",
-    "OpenRouterJevAdapter",
-]
+__all__ = ["MlxQwenAdapter", "OpenRouterJevAdapter"]
