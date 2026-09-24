@@ -1,4 +1,4 @@
-# Safe local smoke configuration. The 14B checkpoint is loaded only for a live run.
+# Native MLX smoke configuration. The limit is per task (3 = 9 samples total).
 dataset:
   kind: bbh_logical_deduction
   name: lighteval/bbh
@@ -9,23 +9,21 @@ dataset:
     - logical_deduction_five_objects
     - logical_deduction_seven_objects
   instruction: Choose the option that follows from the problem.
-  limit: 3  # Per task: nine examples total in the smoke run.
+  limit: null
 model:
-  kind: lmstudio_qwen
-  name: mlx-community/Qwen3-14B-4bit
-  # API identifier shown by the loaded LM Studio model on this Mac.
-  api_model: qwen/qwen3-14b
-  lmstudio_api: native
-  base_url: http://127.0.0.1:1234
-  timeout_seconds: 300
-  max_tokens: 1024
+  kind: mlx_qwen
+  name: lmstudio-community/Qwen3-14B-MLX-4bit
+  model_path: ~/.lmstudio/models/lmstudio-community/Qwen3-14B-MLX-4bit
+  structured_output: true
+  max_tokens: 8192
   thinking: true
-  temperature: 0.6
+  temperature: 0
   top_p: 0.95
   top_k: 20
   seed: 42
 run:
   output_dir: results
   seed: 42
-  dry_run: true
+  dry_run: false
   persist_raw_responses: true
+  continue_on_error: true

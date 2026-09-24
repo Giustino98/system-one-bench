@@ -36,6 +36,7 @@ class ModelConfig(BaseModel):
 
     kind: Literal["gemini", "jev", "jev_openrouter", "mlx_qwen", "lmstudio_qwen"]
     name: str
+    model_path: Path | None = None
     api_model: str | None = None
     lmstudio_api: Literal["openai", "native"] = "openai"
     structured_output: bool = False

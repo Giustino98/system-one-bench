@@ -5,12 +5,13 @@ BBH_QWEN_CONFIG ?= configs/bbh-logical-deduction-qwen3-14b.yaml
 BBH_JEV_CONFIG ?= configs/bbh-logical-deduction-jev-openrouter.yaml
 BBH_GEMINI_CONFIG ?= configs/bbh-logical-deduction-gemini-3.8-flash.yaml
 ENV_FILE ?= .env
+RESUME_DIR ?=
 
 .DEFAULT_GOAL := help
 
 .PHONY: help setup test lint format-check typecheck check validate-local plan-local \
 	run-local validate-jev plan-jev run-jev plan-bbh-qwen run-bbh-qwen plan-bbh-jev run-bbh-jev \
-	plan-bbh-gemini run-bbh-gemini
+	plan-bbh-gemini run-bbh-gemini resume-bbh-qwen
 
 help: ## Show the available commands.
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -57,6 +58,10 @@ plan-bbh-qwen: ## Validate and print the safe Qwen3 BBH smoke-test plan.
 
 run-bbh-qwen: ## Run Qwen3 BBH locally (YAML must have dry_run: false).
 	$(UV) run system-one-bench run $(BBH_QWEN_CONFIG)
+
+resume-bbh-qwen: ## Resume Qwen BBH; pass RESUME_DIR=results/<run-id>.
+	@test -n "$(RESUME_DIR)" || { echo "Set RESUME_DIR=results/<run-id>."; exit 1; }
+	$(UV) run system-one-bench run $(BBH_QWEN_CONFIG) --resume $(RESUME_DIR)
 
 plan-bbh-jev: ## Validate and print the safe Jev BBH smoke-test plan.
 	$(UV) run system-one-bench validate-config $(BBH_JEV_CONFIG)

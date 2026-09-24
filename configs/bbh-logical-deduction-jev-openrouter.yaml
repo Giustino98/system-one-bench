@@ -9,7 +9,7 @@ dataset:
     - logical_deduction_five_objects
     - logical_deduction_seven_objects
   instruction: Choose the option that follows from the problem.
-  limit: 3  # Per task: nine examples total in the smoke run.
+  limit: null  # Per task: nine examples total in the smoke run.
 model:
   kind: jev_openrouter
   name: typesafe/jev-1.13
@@ -23,5 +23,5 @@ model:
 run:
   output_dir: results
   seed: 42
-  dry_run: true
+  dry_run: false
   persist_raw_responses: true

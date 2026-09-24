@@ -5,7 +5,7 @@ dataset:
   data_files:
     train: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/train-00000-of-00001.parquet
     test: https://huggingface.co/datasets/PolyAI/banking77/resolve/8eed2b348ec07d40ffbe91dcc4718e2f0f977714/data/test-00000-of-00001.parquet
-  limit: 25
+  limit: null
 model:
   kind: jev_openrouter
   name: typesafe/jev-1.13
@@ -20,5 +20,5 @@ model:
 run:
   output_dir: results
   seed: 42
-  dry_run: true
+  dry_run: false
   persist_raw_responses: false

@@ -9,7 +9,7 @@ dataset:
     - logical_deduction_five_objects
     - logical_deduction_seven_objects
   instruction: Choose the option that follows from the problem.
-  limit: 3
+  limit: null
 model:
   kind: gemini
   name: gemini-3.8-flash
@@ -27,5 +27,5 @@ model:
 run:
   output_dir: results
   seed: 42
-  dry_run: true
+  dry_run: false
   persist_raw_responses: true

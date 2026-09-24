@@ -19,10 +19,10 @@ def test_bbh_configs_enable_structured_qwen_thinking() -> None:
     qwen = load_config(root / "configs" / "bbh-logical-deduction-qwen3-14b.yaml")
 
     assert jev.model.name == "typesafe/jev-1.13"
-    assert qwen.model.name == "mlx-community/Qwen3-14B-4bit"
-    assert qwen.model.api_model == "qwen/qwen3-14b"
-    assert qwen.model.kind == "lmstudio_qwen"
-    assert qwen.model.lmstudio_api == "openai"
+    assert qwen.model.name == "lmstudio-community/Qwen3-14B-MLX-4bit"
+    assert qwen.model.kind == "mlx_qwen"
+    assert qwen.model.model_path is not None
+    assert str(qwen.model.model_path).endswith("Qwen3-14B-MLX-4bit")
     assert qwen.model.structured_output is True
     assert qwen.model.thinking is True
     assert qwen.model.max_tokens == 8192

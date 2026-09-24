@@ -40,10 +40,14 @@ def plan(config: Annotated[Path, typer.Argument(exists=True, readable=True)]) ->
 def run(
     config: Annotated[Path, typer.Argument(exists=True, readable=True)],
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    resume: Annotated[
+        Path | None,
+        typer.Option("--resume", file_okay=False, help="Resume an interrupted run directory."),
+    ] = None,
 ) -> None:
     """Execute a benchmark only when the YAML explicitly sets dry_run: false."""
     _configure_logging(verbose)
-    output = run_benchmark(load_config(config))
+    output = run_benchmark(load_config(config), resume_directory=resume)
     typer.echo(f"Saved benchmark artifacts to {output}")
 
 
