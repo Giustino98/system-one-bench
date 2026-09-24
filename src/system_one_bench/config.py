@@ -53,6 +53,7 @@ class JevConfig(StrictModel):
 class QwenConfig(StrictModel):
     kind: Literal["mlx_qwen"]
     name: str = "lmstudio-community/Qwen3-14B-MLX-4bit"
+    revision: str = "b5d17e319ff9734f059b42b8b1f0834932bbb12c"
     model_path: Path | None = None
     max_tokens: int = Field(default=8192, gt=0)
     temperature: float = Field(default=0.0, ge=0)

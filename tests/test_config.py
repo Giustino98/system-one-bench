@@ -18,6 +18,7 @@ def test_configs_share_the_exact_dataset_protocol() -> None:
     assert jev.run.dry_run is True
     assert qwen.run.dry_run is True
     assert qwen.model.max_tokens == 8192
+    assert qwen.model.revision == "b5d17e319ff9734f059b42b8b1f0834932bbb12c"
 
 
 def test_unknown_configuration_fields_fail_during_parsing(tmp_path: Path) -> None:

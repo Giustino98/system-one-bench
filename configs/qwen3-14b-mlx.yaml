@@ -11,6 +11,7 @@ dataset:
 model:
   kind: mlx_qwen
   name: lmstudio-community/Qwen3-14B-MLX-4bit
+  revision: b5d17e319ff9734f059b42b8b1f0834932bbb12c
   # Optional: point at an existing local checkout to avoid a download.
   # model_path: ~/.lmstudio/models/lmstudio-community/Qwen3-14B-MLX-4bit
   max_tokens: 8192

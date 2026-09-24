@@ -27,6 +27,11 @@ The loader uses `lighteval/bbh` at the pinned revision:
 1b61f099fcbf9e55691ef8cc6b4b8fb431dae097
 ```
 
+The Qwen configuration also pins `lmstudio-community/Qwen3-14B-MLX-4bit` to
+Hugging Face revision `b5d17e319ff9734f059b42b8b1f0834932bbb12c`. MLX receives that revision
+when resolving the model, so a future change to the repository's `main` branch cannot silently
+change the checkpoint used by this benchmark.
+
 The split is `train`, tasks are loaded in 3/5/7-object order, and alternatives are mapped to canonical keys `A`, `B`, `C`, and so on. Configuration parsing rejects unknown fields. Provider or infrastructure errors stop the run immediately; an unfinished Qwen generation is recorded as an invalid answer and remains part of the benchmark result.
 
 The two checked-in YAML files default to `dry_run: true`. A live run requires changing that value explicitly.
@@ -60,7 +65,10 @@ make setup
 make check
 ```
 
-The Qwen configuration downloads `lmstudio-community/Qwen3-14B-MLX-4bit` through MLX when it is not already cached. If the same checkpoint already exists locally, set `model_path` in `configs/qwen3-14b-mlx.yaml`.
+The Qwen configuration downloads the pinned `lmstudio-community/Qwen3-14B-MLX-4bit` revision
+through MLX when it is not already cached. If that exact checkpoint already exists locally, set
+`model_path` in `configs/qwen3-14b-mlx.yaml`; the local override is expected to contain the same
+pinned files.
 
 ## Inspecting the plans
 

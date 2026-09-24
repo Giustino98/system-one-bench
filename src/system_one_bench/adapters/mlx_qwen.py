@@ -95,7 +95,7 @@ class MlxQwenAdapter:
                 if not local_path.is_dir():
                     raise FileNotFoundError(f"MLX model directory not found: {local_path}")
                 model_reference = str(local_path)
-            loaded = load(model_reference)
+            loaded = load(model_reference, revision=self._config.revision)
             self._model = loaded[0]
             self._tokenizer = loaded[1]
             self._tokenizer.eos_token_ids = set(_eos_token_ids(self._tokenizer))
