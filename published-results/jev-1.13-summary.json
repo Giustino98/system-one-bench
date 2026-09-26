@@ -1,0 +1,20 @@
+{
+  "run_id": "20260921T195346Z-jev_openrouter",
+  "model_name": "typesafe/jev-1.13",
+  "dataset_name": "lighteval/bbh",
+  "split": "train",
+  "sample_count": 1500,
+  "metrics": {
+    "accuracy": 0.9253333333333333,
+    "macro_f1": 0.9116342358177497,
+    "invalid_output_rate": 0.0,
+    "latency_p50_ms": 368.1621245050337,
+    "latency_p95_ms": 505.3574440542434,
+    "brier_score": 0.11043799386457162,
+    "ece": 0.02497218855218846,
+    "accuracy_logical_deduction_five_objects": 0.958,
+    "accuracy_logical_deduction_seven_objects": 0.87,
+    "accuracy_logical_deduction_three_objects": 1.0
+  },
+  "estimated_cost_usd": 0.02948043
+}

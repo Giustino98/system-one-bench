@@ -1,0 +1,21 @@
+{
+  "run_id": "20260923T085321Z-mlx_qwen",
+  "model_name": "lmstudio-community/Qwen3-14B-MLX-4bit",
+  "dataset_name": "lighteval/bbh",
+  "split": "train",
+  "sample_count": 1500,
+  "metrics": {
+    "accuracy": 0.988,
+    "macro_f1": 0.9906495378291106,
+    "invalid_output_rate": 0.008,
+    "error_rate": 0.0,
+    "latency_p50_ms": 115444.72120849241,
+    "latency_p95_ms": 351482.17894581024,
+    "brier_score": null,
+    "ece": null,
+    "accuracy_logical_deduction_five_objects": 0.998,
+    "accuracy_logical_deduction_seven_objects": 0.9771428571428571,
+    "accuracy_logical_deduction_three_objects": 0.9966666666666667
+  },
+  "estimated_cost_usd": 0.0
+}

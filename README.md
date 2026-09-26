@@ -36,6 +36,35 @@ The split is `train`, tasks are loaded in 3/5/7-object order, and alternatives a
 
 The two checked-in YAML files default to `dry_run: true`. A live run requires changing that value explicitly.
 
+## Published results
+
+The complete aggregate artifacts for the two reported 1,500-example runs are
+versioned in [`published-results/`](published-results/). They include the exact
+`summary.json`, parsed `metadata.json`, and run IDs, but not `predictions.jsonl`:
+the Qwen file contains lengthy local reasoning traces and is not needed
+to verify the reported aggregate figures.
+
+| Metric | Jev 1.13 via OpenRouter | Qwen3-14B MLX 4-bit, native thinking |
+| --- | ---: | ---: |
+| Run ID | `20260921T195346Z-jev_openrouter` | `20260923T085321Z-mlx_qwen` |
+| Accuracy | 92.53% | **98.80%** |
+| Macro-F1 | 91.16% | **99.06%** |
+| Accuracy, 3 objects | **100.00%** | 99.67% |
+| Accuracy, 5 objects | 95.80% | **99.80%** |
+| Accuracy, 7 objects | 87.00% | **97.71%** |
+| Invalid-output rate | **0.00%** | 0.80% |
+| Latency p50 | **368 ms** | 115.4 s |
+| Latency p95 | **505 ms** | 351.5 s |
+| Measured API cost | $0.0295 | $0.00* |
+| Brier score / ECE | 0.1104 / 0.0250 | not available |
+
+\*The local Qwen figure excludes electricity and hardware costs.
+
+Read the raw aggregate artifacts: [`jev-1.13-summary.json`](published-results/jev-1.13-summary.json),
+[`jev-1.13-metadata.json`](published-results/jev-1.13-metadata.json),
+[`qwen3-14b-mlx-4bit-summary.json`](published-results/qwen3-14b-mlx-4bit-summary.json),
+and [`qwen3-14b-mlx-4bit-metadata.json`](published-results/qwen3-14b-mlx-4bit-metadata.json).
+
 ## Metrics
 
 Each completed run reports:
